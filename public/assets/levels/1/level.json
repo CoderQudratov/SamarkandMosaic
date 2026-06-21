@@ -1,0 +1,36 @@
+{
+  "id": 1,
+  "boardImage": "board.png",
+  "guideImage": "guide.png",
+  "outlineImage": "outline.png",
+  "pieces": [
+    {
+      "id": "piece_1",
+      "image": "pieces/piece_1.png",
+      "target": { "x": 150, "y": 150 },
+      "pivot": { "x": 0, "y": 0 },
+      "size": { "w": 120, "h": 120 }
+    },
+    {
+      "id": "piece_2",
+      "image": "pieces/piece_2.png",
+      "target": { "x": 270, "y": 150 },
+      "pivot": { "x": 0, "y": 0 },
+      "size": { "w": 120, "h": 120 }
+    },
+    {
+      "id": "piece_3",
+      "image": "pieces/piece_3.png",
+      "target": { "x": 150, "y": 270 },
+      "pivot": { "x": 0, "y": 0 },
+      "size": { "w": 120, "h": 120 }
+    },
+    {
+      "id": "piece_4",
+      "image": "pieces/piece_4.png",
+      "target": { "x": 270, "y": 270 },
+      "pivot": { "x": 0, "y": 0 },
+      "size": { "w": 120, "h": 120 }
+    }
+  ]
+}
