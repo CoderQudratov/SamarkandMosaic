@@ -1,41 +1,30 @@
-import { getTelegramWebApp, isTelegramContext } from '@/lib/telegram';
+// Thin facade kept for backward compatibility with existing callers.
+// New code should import directly from '@/services/telegram'.
+
+import {
+  initTelegramSDK,
+  isTelegramEnv,
+} from '@/services/telegram/telegram';
+import { getTelegramUser } from '@/services/telegram/telegramUser';
+import { haptic } from '@/services/telegram/haptic';
 import type { PlayerProfile } from '@/game/types';
 
 export class TelegramService {
   init(): void {
-    const twa = getTelegramWebApp();
-    if (!twa) return;
-    twa.ready();
-    twa.expand();
+    initTelegramSDK();
   }
 
   getPlayerProfile(): PlayerProfile | null {
-    if (!isTelegramContext()) return null;
-    const user = getTelegramWebApp()?.initDataUnsafe?.user;
-    if (!user) return null;
-    return {
-      telegramId: user.id,
-      username: user.username ?? '',
-      firstName: user.first_name,
-      photoUrl: user.photo_url ?? null,
-    };
+    if (!isTelegramEnv()) return null;
+    return getTelegramUser();
   }
 
-  hapticLight(): void {
-    getTelegramWebApp()?.HapticFeedback.impactOccurred('light');
-  }
-
-  hapticMedium(): void {
-    getTelegramWebApp()?.HapticFeedback.impactOccurred('medium');
-  }
-
-  hapticSuccess(): void {
-    getTelegramWebApp()?.HapticFeedback.notificationOccurred('success');
-  }
-
-  hapticError(): void {
-    getTelegramWebApp()?.HapticFeedback.notificationOccurred('error');
-  }
+  hapticLight(): void   { haptic.light(); }
+  hapticMedium(): void  { haptic.medium(); }
+  hapticHeavy(): void   { haptic.heavy(); }
+  hapticSuccess(): void { haptic.success(); }
+  hapticError(): void   { haptic.error(); }
+  hapticWarning(): void { haptic.warning(); }
 }
 
 export const telegramService = new TelegramService();

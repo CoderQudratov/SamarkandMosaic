@@ -1,0 +1,158 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Cinzel+Decorative:wght@400;700&display=swap');
+
+/* ── Reset ───────────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #1a0f00;
+  color: #F8F1E5;
+  font-family: 'Cinzel', 'Georgia', 'Times New Roman', serif;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
+  overscroll-behavior: none;
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
+input, textarea {
+  -webkit-appearance: none;
+  appearance: none;
+  outline: none;
+  border: none;
+  background: none;
+  color: inherit;
+  font-family: inherit;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+button {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ── Design tokens as CSS custom properties ─────────────────────────────── */
+:root {
+  /* Brand palette */
+  --gold:           #D4AF37;
+  --gold-dark:      #B8860B;
+  --gold-glow:      rgba(212, 175, 55, 0.45);
+  --gold-subtle:    rgba(212, 175, 55, 0.12);
+  --timurid-blue:   #1F5FA8;
+  --sandstone:      #D2B48C;
+  --sandstone-dark: #B8956A;
+  --brick:          #7B3F00;
+  --ivory:          #F8F1E5;
+  --ivory-dim:      rgba(248, 241, 229, 0.7);
+  --bg:             #1a0f00;
+  --bg-card:        rgba(30, 18, 4, 0.96);
+  --bg-overlay:     rgba(10, 5, 0, 0.88);
+
+  /* Safe area (set by Telegram SDK in bootstrap) */
+  --safe-area-top:    0px;
+  --safe-area-bottom: 0px;
+  --safe-area-left:   0px;
+  --safe-area-right:  0px;
+
+  /* Viewport (set by Telegram SDK) */
+  --viewport-height:  100dvh;
+
+  /* Typography */
+  --font-display:   'Cinzel Decorative', 'Cinzel', 'Georgia', serif;
+  --font-heading:   'Cinzel', 'Georgia', serif;
+  --font-body:      'Cinzel', 'Georgia', serif;
+
+  /* Ornamental shadows */
+  --shadow-gold-sm:  0 2px 12px rgba(212, 175, 55, 0.25);
+  --shadow-gold-md:  0 4px 24px rgba(212, 175, 55, 0.35);
+  --shadow-gold-lg:  0 8px 48px rgba(212, 175, 55, 0.45);
+  --shadow-deep:     0 20px 60px rgba(0, 0, 0, 0.7);
+}
+
+/* ── Scrollbar ───────────────────────────────────────────────────────────── */
+::-webkit-scrollbar       { width: 3px; }
+::-webkit-scrollbar-track { background: #1a0f00; }
+::-webkit-scrollbar-thumb { background: #D4AF37; border-radius: 2px; }
+
+/* ── Input autofill fix ─────────────────────────────────────────────────── */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px #2a1a00 inset;
+  -webkit-text-fill-color: #F8F1E5;
+  caret-color: #D4AF37;
+}
+
+/* ── Ornamental card frame ──────────────────────────────────────────────── */
+.ornamental-card {
+  position: relative;
+  background: var(--bg-card);
+  border: 1px solid rgba(212, 175, 55, 0.25);
+  box-shadow:
+    0 0 0 1px rgba(212, 175, 55, 0.08) inset,
+    var(--shadow-deep),
+    0 0 80px rgba(212, 175, 55, 0.06) inset;
+}
+
+/* Corner flourishes via pseudo — used with .ornamental-corners class */
+.ornamental-corners::before,
+.ornamental-corners::after {
+  content: '';
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-color: var(--gold);
+  border-style: solid;
+  opacity: 0.7;
+}
+.ornamental-corners::before {
+  top: 6px; left: 6px;
+  border-width: 1.5px 0 0 1.5px;
+}
+.ornamental-corners::after {
+  bottom: 6px; right: 6px;
+  border-width: 0 1.5px 1.5px 0;
+}
+
+/* ── Keyframe animations ────────────────────────────────────────────────── */
+@keyframes goldPulse {
+  0%, 100% { box-shadow: 0 0 20px rgba(212, 175, 55, 0.3); }
+  50%       { box-shadow: 0 0 40px rgba(212, 175, 55, 0.6); }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+@keyframes floatY {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-6px); }
+}
+
+@keyframes glowRing {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50%       { opacity: 0.8; transform: scale(1.06); }
+}
+
+@keyframes rotateSlow {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}

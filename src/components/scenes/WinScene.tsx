@@ -27,7 +27,7 @@ export function WinScene() {
       <button onClick={handleNext} style={{ marginTop: 24 }}>
         Next Level
       </button>
-      <button onClick={() => useUIStore.getState().setScene('menu')} style={{ marginTop: 12 }}>
+      <button onClick={() => useUIStore.getState().setScene('mainMenu')} style={{ marginTop: 12 }}>
         Menu
       </button>
     </div>

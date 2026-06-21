@@ -79,7 +79,14 @@ export type SoundKey =
 
 // ─── Scene ──────────────────────────────────────────────────────────────────
 
-export type SceneKey = 'menu' | 'game' | 'win' | 'gameover';
+export type SceneKey =
+  | 'splash'
+  | 'welcome'
+  | 'nameInput'
+  | 'mainMenu'
+  | 'game'
+  | 'win'
+  | 'gameover';
 
 // ─── Player ─────────────────────────────────────────────────────────────────
 
@@ -87,7 +94,11 @@ export interface PlayerProfile {
   telegramId: number;
   username: string;
   firstName: string;
+  lastName: string;
+  displayName: string;
+  language: string;
   photoUrl: string | null;
+  isPremium: boolean;
 }
 
 export interface PlayerProgress {

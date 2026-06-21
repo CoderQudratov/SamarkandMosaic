@@ -27,7 +27,7 @@ export function GameOverScene() {
       <button onClick={handleRetry} style={{ marginTop: 24 }}>
         Try Again
       </button>
-      <button onClick={() => useUIStore.getState().setScene('menu')} style={{ marginTop: 12 }}>
+      <button onClick={() => useUIStore.getState().setScene('mainMenu')} style={{ marginTop: 12 }}>
         Menu
       </button>
     </div>

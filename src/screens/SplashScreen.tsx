@@ -1,0 +1,159 @@
+import { useEffect, useRef } from 'react';
+import { gsap } from '@/lib/gsap';
+import { TIMINGS, COLORS } from '@/constants';
+import { TimuridStar } from '@/components/ui/TimuridStar';
+import { useUIStore } from '@/store/uiStore';
+
+export function SplashScreen() {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const glowRingRef  = useRef<HTMLDivElement>(null);
+  const starRef      = useRef<HTMLDivElement>(null);
+  const titleRef     = useRef<HTMLDivElement>(null);
+  const subtitleRef  = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // Set start states
+    gsap.set([starRef.current, titleRef.current, subtitleRef.current], {
+      opacity: 0,
+      y: 16,
+    });
+    gsap.set(glowRingRef.current, { opacity: 0, scale: 0.6 });
+
+    const tl = gsap.timeline({
+      onComplete: () => {
+        useUIStore.getState().setScene('welcome');
+      },
+    });
+
+    tl
+      // 1. Glow ring expands
+      .to(glowRingRef.current, {
+        opacity: 1,
+        scale: 1,
+        duration: TIMINGS.splashGlowIn,
+        ease: 'power3.out',
+      })
+      // 2. Star materializes
+      .to(
+        starRef.current,
+        { opacity: 1, y: 0, duration: TIMINGS.splashLogoIn, ease: 'power3.out' },
+        '-=0.4',
+      )
+      // 3. Title fades up
+      .to(
+        titleRef.current,
+        { opacity: 1, y: 0, duration: TIMINGS.splashSubtitleIn, ease: 'power2.out' },
+        '-=0.25',
+      )
+      // 4. Subtitle fades up
+      .to(
+        subtitleRef.current,
+        { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' },
+        '-=0.1',
+      )
+      // 5. Glow pulse
+      .to(glowRingRef.current, {
+        scale: 1.12,
+        opacity: 0.7,
+        duration: TIMINGS.splashHold / 2,
+        ease: 'sine.inOut',
+        yoyo: true,
+        repeat: 1,
+      })
+      // 6. Hold a beat then fade out everything
+      .to(containerRef.current, {
+        opacity: 0,
+        duration: TIMINGS.splashOut,
+        ease: 'power2.in',
+        delay: 0.15,
+      });
+
+    return () => {
+      tl.kill();
+    };
+  }, []);
+
+  return (
+    <div
+      ref={containerRef}
+      style={{
+        position: 'absolute',
+        inset: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: '#1a0f00',
+        zIndex: 100,
+        overflow: 'hidden',
+      }}
+    >
+      {/* Ambient radial glow */}
+      <div
+        ref={glowRingRef}
+        style={{
+          position: 'absolute',
+          width: '280px',
+          height: '280px',
+          borderRadius: '50%',
+          background:
+            'radial-gradient(circle, rgba(212,175,55,0.18) 0%, rgba(212,175,55,0.06) 45%, transparent 70%)',
+          pointerEvents: 'none',
+        }}
+      />
+
+      {/* Timurid star emblem */}
+      <div ref={starRef} style={{ marginBottom: '28px', position: 'relative', zIndex: 1 }}>
+        <TimuridStar size={90} glowing />
+      </div>
+
+      {/* Title */}
+      <div ref={titleRef} style={{ textAlign: 'center', position: 'relative', zIndex: 1 }}>
+        <h1
+          style={{
+            fontFamily: 'var(--font-display)',
+            fontSize: 'clamp(22px, 6vw, 30px)',
+            fontWeight: 700,
+            letterSpacing: '6px',
+            textTransform: 'uppercase',
+            color: COLORS.gold,
+            lineHeight: 1.1,
+            textShadow: `0 0 30px rgba(212,175,55,0.6)`,
+          }}
+        >
+          Samarkand
+        </h1>
+        <h1
+          style={{
+            fontFamily: 'var(--font-display)',
+            fontSize: 'clamp(22px, 6vw, 30px)',
+            fontWeight: 700,
+            letterSpacing: '6px',
+            textTransform: 'uppercase',
+            color: COLORS.gold,
+            lineHeight: 1.1,
+            textShadow: `0 0 30px rgba(212,175,55,0.6)`,
+          }}
+        >
+          Mosaic
+        </h1>
+      </div>
+
+      {/* Subtitle */}
+      <div ref={subtitleRef} style={{ marginTop: '16px', zIndex: 1 }}>
+        <p
+          style={{
+            fontFamily: 'var(--font-heading)',
+            fontSize: '10px',
+            letterSpacing: '4px',
+            textTransform: 'uppercase',
+            color: COLORS.sandstone,
+            opacity: 0.8,
+          }}
+        >
+          Restore · Discover · Preserve
+        </p>
+      </div>
+    </div>
+  );
+}

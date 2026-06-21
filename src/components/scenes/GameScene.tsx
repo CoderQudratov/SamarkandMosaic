@@ -87,7 +87,7 @@ export function GameScene() {
           }}
         >
           <button onClick={() => gameManager.resume()}>Resume</button>
-          <button onClick={() => useUIStore.getState().setScene('menu')} style={{ marginTop: 16 }}>
+          <button onClick={() => useUIStore.getState().setScene('mainMenu')} style={{ marginTop: 16 }}>
             Exit
           </button>
         </div>
