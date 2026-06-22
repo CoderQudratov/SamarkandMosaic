@@ -110,3 +110,42 @@ export interface PlayerProgress {
 // ─── Game Runtime ────────────────────────────────────────────────────────────
 
 export type GameStatus = 'idle' | 'playing' | 'paused' | 'won' | 'gameover';
+
+// ─── Puzzle (React-DOM board system) ─────────────────────────────────────────
+// Level JSON authored in natural board-image pixel space. The board is scaled
+// responsively to fit the screen; piece slots scale with it.
+
+export interface PuzzlePieceDef {
+  id: string;
+  image: string;   // path relative to the level directory, e.g. "pieces/piece-1.png"
+  targetX: number; // slot top-left X in natural board space
+  targetY: number; // slot top-left Y in natural board space
+  width: number;   // slot/piece width in natural board space
+  height: number;  // slot/piece height in natural board space
+}
+
+export interface PuzzleLevel {
+  id: string;            // e.g. "level-1"
+  board: string;         // board image filename
+  guide: string;         // guide image filename
+  pieces: PuzzlePieceDef[];
+}
+
+export type PuzzleLoadState = 'idle' | 'loading' | 'ready' | 'error';
+
+export interface PuzzlePieceRuntime {
+  id: string;
+  def: PuzzlePieceDef;
+  placed: boolean;
+}
+
+// Board's on-screen placement (viewport CSS px) plus natural→screen scale.
+export interface BoardLayout {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  scale: number;
+  naturalWidth: number;
+  naturalHeight: number;
+}

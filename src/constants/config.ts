@@ -29,6 +29,14 @@ export const CONFIG = {
     sfxVolume: 0.8,
   },
 
+  // Puzzle board system
+  puzzle: {
+    snapTolerance: 40,   // px radius (screen space) for a valid drop — see gameplay.md note
+    grabScale: 1.05,     // piece scale while dragging
+    trayPieceHeight: 76, // px height of pieces shown in the bottom tray
+    boardMargin: 16,     // px gap between board edge and screen
+  },
+
   // Optional — empty strings when not configured. Never assume these exist.
   supabase: {
     url: (import.meta.env.VITE_SUPABASE_URL as string | undefined) ?? '',

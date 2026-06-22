@@ -9,6 +9,10 @@ export const TIMINGS = {
   buttonHover: 0.15,
   buttonPress: 0.08,
 
+  // ── Puzzle drag / snap (pieceReturn defined above is reused for invalid drop) ─
+  dragGrab: 0.12,    // grow to grabScale on pickup
+  snapPlace: 0.25,   // snap into slot (power2.out per task spec)
+
   // ── Screen transitions ───────────────────────────────────────────────────
   screenEnter: 0.35,
   screenExit: 0.2,

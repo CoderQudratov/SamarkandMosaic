@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState } from 'react';
 import { gsap } from '@/lib/gsap';
 import { COLORS } from '@/constants';
-import { TimuridStar } from '@/components/ui/TimuridStar';
+import { GameLogo } from '@/components/ui/GameLogo';
 import { OrnamentalDivider } from '@/components/ui/OrnamentalDivider';
 import { CornerFlourish } from '@/components/ui/CornerFlourish';
 import { PrimaryButton } from '@/components/buttons/PrimaryButton';
@@ -192,7 +192,7 @@ export function MainMenuScreen() {
             animation: 'floatY 5s ease-in-out infinite',
           }}
         >
-          <TimuridStar size={68} glowing />
+          <GameLogo size={180} />
         </div>
 
         {/* Ornamental panel */}

@@ -1,0 +1,39 @@
+{
+  "id": "level-1",
+  "board": "board.png",
+  "guide": "guide.png",
+  "pieces": [
+    {
+      "id": "piece-001",
+      "image": "pieces/piece_001.png",
+      "targetX": 0,
+      "targetY": 0,
+      "width": 627,
+      "height": 722
+    },
+    {
+      "id": "piece-002",
+      "image": "pieces/piece_002.png",
+      "targetX": 532,
+      "targetY": 0,
+      "width": 722,
+      "height": 722
+    },
+    {
+      "id": "piece-003",
+      "image": "pieces/piece_003.png",
+      "targetX": 0,
+      "targetY": 627,
+      "width": 627,
+      "height": 627
+    },
+    {
+      "id": "piece-004",
+      "image": "pieces/piece_004.png",
+      "targetX": 532,
+      "targetY": 627,
+      "width": 722,
+      "height": 627
+    }
+  ]
+}

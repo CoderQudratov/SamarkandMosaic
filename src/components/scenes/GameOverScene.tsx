@@ -1,14 +1,17 @@
 import { useUIStore } from '@/store/uiStore';
-import { gameManager } from '@/game/GameManager';
-import { useGameStore } from '@/store/gameStore';
+import { useBoardStore } from '@/store/boardStore';
+import { OrnamentalDivider } from '@/components/ui/OrnamentalDivider';
+import { PrimaryButton } from '@/components/buttons/PrimaryButton';
+import { SecondaryButton } from '@/components/buttons/SecondaryButton';
+import { COLORS } from '@/constants';
 
+// Reserved for future fail states (lives are not part of the puzzle core phase).
 export function GameOverScene() {
-  const levelId = useGameStore((s) => s.currentLevelId);
-
-  const handleRetry = async () => {
-    if (!levelId) return;
-    await gameManager.startLevel(levelId);
+  const tryAgain = () => {
+    useBoardStore.getState().reset();
+    useUIStore.getState().setScene('game');
   };
+  const toMenu = () => useUIStore.getState().setScene('mainMenu');
 
   return (
     <div
@@ -19,17 +22,34 @@ export function GameOverScene() {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'rgba(26,15,0,0.9)',
-        pointerEvents: 'all',
+        gap: '20px',
+        padding: '32px',
+        textAlign: 'center',
       }}
     >
-      <h2 style={{ color: '#CC2200', fontFamily: 'serif' }}>Game Over</h2>
-      <button onClick={handleRetry} style={{ marginTop: 24 }}>
-        Try Again
-      </button>
-      <button onClick={() => useUIStore.getState().setScene('mainMenu')} style={{ marginTop: 12 }}>
-        Menu
-      </button>
+      <h1
+        style={{
+          fontFamily: 'var(--font-display)',
+          fontSize: 'clamp(20px, 5.5vw, 26px)',
+          fontWeight: 700,
+          letterSpacing: '4px',
+          textTransform: 'uppercase',
+          color: COLORS.brick,
+        }}
+      >
+        Not Yet
+      </h1>
+
+      <OrnamentalDivider width="160px" />
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%', maxWidth: '280px' }}>
+        <PrimaryButton size="md" fullWidth onClick={tryAgain}>
+          Try Again
+        </PrimaryButton>
+        <SecondaryButton size="md" fullWidth onClick={toMenu}>
+          Menu
+        </SecondaryButton>
+      </div>
     </div>
   );
 }

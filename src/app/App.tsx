@@ -11,8 +11,8 @@ import { WelcomeScreen }   from '@/screens/WelcomeScreen';
 import { NameInputScreen } from '@/screens/NameInputScreen';
 import { MainMenuScreen }  from '@/screens/MainMenuScreen';
 
-// Game phase scenes (stubs — wired in next phases)
-import { GameScene }     from '@/components/scenes/GameScene';
+// Game phase
+import { PuzzleBoard }   from '@/game/board/PuzzleBoard';
 import { WinScene }      from '@/components/scenes/WinScene';
 import { GameOverScene } from '@/components/scenes/GameOverScene';
 
@@ -36,8 +36,7 @@ export function App() {
       {scene === 'mainMenu'  && <MainMenuScreen />}
 
       {/* ── Game phase ───────────────────────────────────────────────────── */}
-      {/* Canvas + gameManager.init added in board phase */}
-      {scene === 'game'     && <GameScene />}
+      {scene === 'game'     && <PuzzleBoard />}
       {scene === 'win'      && <WinScene />}
       {scene === 'gameover' && <GameOverScene />}
 

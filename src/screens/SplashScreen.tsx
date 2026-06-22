@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { gsap } from '@/lib/gsap';
 import { TIMINGS, COLORS } from '@/constants';
-import { TimuridStar } from '@/components/ui/TimuridStar';
+import { GameLogo } from '@/components/ui/GameLogo';
 import { useUIStore } from '@/store/uiStore';
 
 export function SplashScreen() {
@@ -129,7 +129,7 @@ export function SplashScreen() {
 
       {/* Timurid star emblem */}
       <div ref={starRef} style={{ marginBottom: '28px', position: 'relative', zIndex: 1 }}>
-        <TimuridStar size={90} glowing />
+        <GameLogo size={220} />
       </div>
 
       {/* Title */}

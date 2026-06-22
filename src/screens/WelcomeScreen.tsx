@@ -1,7 +1,7 @@
 import { useRef, useEffect } from 'react';
 import { gsap } from '@/lib/gsap';
 import { COLORS } from '@/constants';
-import { TimuridStar } from '@/components/ui/TimuridStar';
+import { GameLogo } from '@/components/ui/GameLogo';
 import { OrnamentalDivider } from '@/components/ui/OrnamentalDivider';
 import { PrimaryButton } from '@/components/buttons/PrimaryButton';
 import { useScreenTransition } from '@/hooks/useScreenTransition';
@@ -80,7 +80,7 @@ export function WelcomeScreen() {
           marginBottom: '28px',
         }}
       >
-        <TimuridStar size={72} glowing />
+        <GameLogo size={240} />
       </div>
 
       {/* Main title */}
