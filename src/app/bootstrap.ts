@@ -13,49 +13,78 @@ import { storageService } from '@/services/storage.service';
 import { usePlayerStore } from '@/store/playerStore';
 import { useUIStore } from '@/store/uiStore';
 
-export async function bootstrap(): Promise<void> {
-  // ── Step 1: Telegram SDK ────────────────────────────────────────────────
-  // ready() + expand() + enableClosingConfirmation()
-  // Silent no-op in browser mode
+// Resolves with null after `ms` milliseconds — used to cap network waits.
+function timeout(ms: number): Promise<null> {
+  return new Promise((resolve) => setTimeout(() => resolve(null), ms));
+}
+
+// ─── Phase 1: synchronous ────────────────────────────────────────────────────
+// Everything here is instant (no network, no disk). Safe to run BEFORE render.
+export function bootstrapSync(): void {
+  // Telegram SDK — ready(), expand(), enableClosingConfirmation()
+  // Silent no-op in browser / non-Telegram contexts
   initTelegramSDK();
 
-  // ── Step 2: Environment flag ─────────────────────────────────────────────
+  // Persist environment flag so UI can adapt
   useUIStore.getState().setIsTelegram(isTelegramEnv());
 
   if (isMockMode()) {
     // eslint-disable-next-line no-console
-    console.info('[bootstrap] Running in browser dev mode — using mock player');
+    console.info('[bootstrap] Browser dev mode — mock player active');
   }
 
-  // ── Step 3: Theme ────────────────────────────────────────────────────────
-  // Reads Telegram themeParams (or Timurid defaults) → writes CSS vars → stores
+  // Theme → CSS custom properties on :root (--tg-bg-color etc.)
   const theme = initTheme();
   useUIStore.getState().setTheme(theme);
 
-  // ── Step 4: Safe area + viewport ─────────────────────────────────────────
+  // Safe area + viewport → CSS vars (--safe-area-top etc.)
   const safeArea = getSafeArea();
   const viewport = getViewportInfo();
   applySafeAreaToCSSVars(safeArea);
   applyViewportToCSSVars(viewport);
   useUIStore.getState().setSafeArea(safeArea);
 
-  // ── Step 5: User data ────────────────────────────────────────────────────
+  // Telegram user from initDataUnsafe — synchronous read, no network
   const profile = getTelegramUser();
   usePlayerStore.getState().setProfile(profile);
+}
 
-  // ── Step 6: Player progress ──────────────────────────────────────────────
-  if (profile.telegramId !== 0) {
-    const remoteProgress = await supabaseService.loadPlayerProgress(
-      profile.telegramId,
-    );
-    if (remoteProgress) {
-      usePlayerStore.getState().setProgress(remoteProgress);
+// ─── Phase 2: async ─────────────────────────────────────────────────────────
+// Network calls only. Runs AFTER render — never blocks SplashScreen.
+export async function bootstrapAsync(): Promise<void> {
+  const { profile } = usePlayerStore.getState();
+  if (!profile) return;
+
+  // ── Local storage (fast, synchronous under the hood) ────────────────────
+  try {
+    type Progress = ReturnType<typeof usePlayerStore.getState>['progress'];
+    const local = storageService.get<Progress>('progress');
+    if (local) {
+      usePlayerStore.getState().setProgress(local);
     }
+  } catch {
+    // localStorage unavailable in some Telegram sandbox contexts — ignore
   }
 
-  // Always check local storage as fallback / offline cache
-  const localProgress = storageService.get<ReturnType<typeof usePlayerStore.getState>['progress']>('progress');
-  if (localProgress && usePlayerStore.getState().progress.totalSnaps === 0) {
-    usePlayerStore.getState().setProgress(localProgress);
+  // ── Supabase (network — capped at 3 s to prevent indefinite hang) ───────
+  if (profile.telegramId === 0) return; // guest/mock user — skip remote
+
+  try {
+    const result = await Promise.race([
+      supabaseService.loadPlayerProgress(profile.telegramId),
+      timeout(3000),
+    ]);
+
+    if (result) {
+      // Remote wins only if the player has more progress than the local cache
+      const current = usePlayerStore.getState().progress;
+      if (result.totalSnaps >= current.totalSnaps) {
+        usePlayerStore.getState().setProgress(result);
+      }
+    }
+  } catch (err) {
+    // Network failure — local cache already applied above, app continues fine
+    // eslint-disable-next-line no-console
+    console.warn('[bootstrap] Supabase load failed — using local cache', err);
   }
 }

@@ -12,64 +12,89 @@ export function SplashScreen() {
   const subtitleRef  = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Set start states
-    gsap.set([starRef.current, titleRef.current, subtitleRef.current], {
-      opacity: 0,
-      y: 16,
-    });
-    gsap.set(glowRingRef.current, { opacity: 0, scale: 0.6 });
+    // Advance to welcome — idempotent, fires from whichever path wins.
+    let advanced = false;
+    const advance = () => {
+      if (advanced) return;
+      advanced = true;
+      useUIStore.getState().setScene('welcome');
+    };
 
-    const tl = gsap.timeline({
-      onComplete: () => {
-        useUIStore.getState().setScene('welcome');
-      },
-    });
+    // Guaranteed fallback: never let the splash soft-lock, even if GSAP's
+    // onComplete never fires (animation failure, tab throttling, etc.).
+    const fallbackTimer = window.setTimeout(advance, 4000);
 
-    tl
-      // 1. Glow ring expands
-      .to(glowRingRef.current, {
-        opacity: 1,
-        scale: 1,
-        duration: TIMINGS.splashGlowIn,
-        ease: 'power3.out',
-      })
-      // 2. Star materializes
-      .to(
-        starRef.current,
-        { opacity: 1, y: 0, duration: TIMINGS.splashLogoIn, ease: 'power3.out' },
-        '-=0.4',
-      )
-      // 3. Title fades up
-      .to(
-        titleRef.current,
-        { opacity: 1, y: 0, duration: TIMINGS.splashSubtitleIn, ease: 'power2.out' },
-        '-=0.25',
-      )
-      // 4. Subtitle fades up
-      .to(
-        subtitleRef.current,
-        { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' },
-        '-=0.1',
-      )
-      // 5. Glow pulse
-      .to(glowRingRef.current, {
-        scale: 1.12,
-        opacity: 0.7,
-        duration: TIMINGS.splashHold / 2,
-        ease: 'sine.inOut',
-        yoyo: true,
-        repeat: 1,
-      })
-      // 6. Hold a beat then fade out everything
-      .to(containerRef.current, {
+    let tl: ReturnType<typeof gsap.timeline> | null = null;
+
+    try {
+      // Set start states
+      gsap.set([starRef.current, titleRef.current, subtitleRef.current], {
         opacity: 0,
-        duration: TIMINGS.splashOut,
-        ease: 'power2.in',
-        delay: 0.15,
+        y: 16,
       });
+      gsap.set(glowRingRef.current, { opacity: 0, scale: 0.6 });
+
+      tl = gsap.timeline({ onComplete: advance });
+
+      tl
+        // 1. Glow ring expands
+        .to(glowRingRef.current, {
+          opacity: 1,
+          scale: 1,
+          duration: TIMINGS.splashGlowIn,
+          ease: 'power3.out',
+        })
+        // 2. Star materializes
+        .to(
+          starRef.current,
+          { opacity: 1, y: 0, duration: TIMINGS.splashLogoIn, ease: 'power3.out' },
+          '-=0.4',
+        )
+        // 3. Title fades up
+        .to(
+          titleRef.current,
+          { opacity: 1, y: 0, duration: TIMINGS.splashSubtitleIn, ease: 'power2.out' },
+          '-=0.25',
+        )
+        // 4. Subtitle fades up
+        .to(
+          subtitleRef.current,
+          { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' },
+          '-=0.1',
+        )
+        // 5. Glow pulse
+        .to(glowRingRef.current, {
+          scale: 1.12,
+          opacity: 0.7,
+          duration: TIMINGS.splashHold / 2,
+          ease: 'sine.inOut',
+          yoyo: true,
+          repeat: 1,
+        })
+        // 6. Hold a beat then fade out everything
+        .to(containerRef.current, {
+          opacity: 0,
+          duration: TIMINGS.splashOut,
+          ease: 'power2.in',
+          delay: 0.15,
+        });
+    } catch (err) {
+      // GSAP failed — force all content visible so the splash is never blank,
+      // then advance shortly after so the user is never stuck.
+      // eslint-disable-next-line no-console
+      console.warn('[splash] GSAP animation failed — showing static splash.', err);
+      [glowRingRef, starRef, titleRef, subtitleRef].forEach((r) => {
+        if (r.current) {
+          r.current.style.opacity = '1';
+          r.current.style.transform = 'none';
+        }
+      });
+      window.setTimeout(advance, 1500);
+    }
 
     return () => {
-      tl.kill();
+      window.clearTimeout(fallbackTimer);
+      tl?.kill();
     };
   }, []);
 

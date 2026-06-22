@@ -29,8 +29,9 @@ export const CONFIG = {
     sfxVolume: 0.8,
   },
 
+  // Optional — empty strings when not configured. Never assume these exist.
   supabase: {
-    url: import.meta.env.VITE_SUPABASE_URL as string,
-    anonKey: import.meta.env.VITE_SUPABASE_ANON_KEY as string,
+    url: (import.meta.env.VITE_SUPABASE_URL as string | undefined) ?? '',
+    anonKey: (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) ?? '',
   },
 } as const;
