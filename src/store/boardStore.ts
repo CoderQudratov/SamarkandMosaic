@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { useUIStore } from '@/store/uiStore';
 import type {
   PuzzleLevel,
   PuzzleLoadState,
@@ -72,13 +71,8 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
     const pieces = { ...state.pieces, [id]: { ...piece, placed: true } };
     const trayOrder = state.trayOrder.filter((p) => p !== id);
     set({ pieces, trayOrder });
-
-    // Completion: all pieces placed → transition to win scene.
-    const allPlaced = Object.values(pieces).every((p) => p.placed);
-    if (allPlaced) {
-      // Brief hold so the final snap is visible before the scene change.
-      setTimeout(() => useUIStore.getState().setScene('win'), 600);
-    }
+    // Win transition is owned by PuzzleBoard — it watches selectProgress and
+    // runs the reveal sequence before calling setScene('win').
   },
 
   reset: () => set({ ...INITIAL }),

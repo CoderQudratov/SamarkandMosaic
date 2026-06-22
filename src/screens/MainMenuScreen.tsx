@@ -9,6 +9,7 @@ import { SecondaryButton } from '@/components/buttons/SecondaryButton';
 import { Modal } from '@/components/modals/Modal';
 import { useScreenTransition } from '@/hooks/useScreenTransition';
 import { usePlayerStore } from '@/store/playerStore';
+import { useAudioStore } from '@/store/audioStore';
 import { CONFIG } from '@/constants';
 
 // Heart & coin icons as inline SVG components
@@ -53,8 +54,11 @@ export function MainMenuScreen() {
   const buttonsRef   = useRef<HTMLDivElement>(null);
 
   const getDisplayName = usePlayerStore((s) => s.getDisplayName);
-  const hearts = CONFIG.startHearts; // placeholder until game phase
-  const coins  = 0;                  // placeholder
+  const hearts = CONFIG.startHearts;
+  const coins  = 0;
+
+  const musicMuted = useAudioStore((s) => s.musicMuted);
+  const sfxMuted   = useAudioStore((s) => s.sfxMuted);
 
   const [showSettings, setShowSettings] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
@@ -286,15 +290,22 @@ export function MainMenuScreen() {
           style={{
             display: 'flex',
             flexDirection: 'column',
-            gap: '16px',
+            gap: '4px',
             paddingTop: '4px',
           }}
         >
-          <SettingsRow label="Sound" value="On" />
-          <SettingsRow label="Haptic" value="On" />
-          <SettingsRow label="Theme" value="Dark" />
+          <SettingsToggle
+            label="Music"
+            on={!musicMuted}
+            onToggle={() => useAudioStore.getState().toggleMusic()}
+          />
+          <SettingsToggle
+            label="Sound FX"
+            on={!sfxMuted}
+            onToggle={() => useAudioStore.getState().toggleSfx()}
+          />
 
-          <div style={{ marginTop: '8px' }}>
+          <div style={{ marginTop: '16px' }}>
             <SecondaryButton
               size="sm"
               fullWidth
@@ -351,8 +362,7 @@ export function MainMenuScreen() {
   );
 }
 
-// Small settings row
-function SettingsRow({ label, value }: { label: string; value: string }) {
+function SettingsToggle({ label, on, onToggle }: { label: string; on: boolean; onToggle: () => void }) {
   return (
     <div
       style={{
@@ -375,17 +385,24 @@ function SettingsRow({ label, value }: { label: string; value: string }) {
       >
         {label}
       </span>
-      <span
+      <button
+        onClick={onToggle}
         style={{
+          background: on ? 'rgba(212,175,55,0.15)' : 'rgba(255,255,255,0.05)',
+          border: `1px solid ${on ? COLORS.gold : 'rgba(212,175,55,0.25)'}`,
+          borderRadius: '20px',
+          padding: '3px 14px',
           fontFamily: 'var(--font-heading)',
-          fontSize: '11px',
-          letterSpacing: '2px',
-          color: COLORS.gold,
-          opacity: 0.9,
+          fontSize: '10px',
+          letterSpacing: '1.5px',
+          textTransform: 'uppercase',
+          color: on ? COLORS.gold : 'rgba(212,175,55,0.35)',
+          cursor: 'pointer',
+          transition: 'all 0.18s ease',
         }}
       >
-        {value}
-      </span>
+        {on ? 'ON' : 'OFF'}
+      </button>
     </div>
   );
 }

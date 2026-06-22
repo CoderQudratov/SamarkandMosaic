@@ -11,14 +11,13 @@ import { isCorrectDrop } from './SnapSystem';
 import type { Rect } from '@/game/utils/geometry';
 
 interface UsePuzzleDragArgs {
-  // Viewport rect of a piece's OWN target slot (depends on current board layout).
   getSlotRect: (id: string) => Rect | null;
-  // Viewport rect of the tray container (used to animate invalid drops home).
   getTrayRect: () => DOMRect | null;
-  // Called when a drop is valid — caller commits the piece as placed.
   onPlace: (id: string) => void;
-  // Called when a drop is invalid — piece returns to the tray.
   onReturn: (id: string) => void;
+  onSnapFeedback?: (slotRect: Rect) => void;
+  // Fired only for intentional wrong drops (not blur/cancel). Used for heart loss.
+  onWrongDrop?: () => void;
 }
 
 interface ActiveDrag {
@@ -33,8 +32,10 @@ interface ActiveDrag {
 
 export interface UsePuzzleDragResult {
   draggingId: string | null;
-  initRect: Rect | null; // initial position for the floating element's first paint
+  initRect: Rect | null;
   floatingRef: React.RefObject<HTMLDivElement>;
+  // Radial glow element — always mounted in the drag layer, GSAP controls it.
+  glowRef: React.RefObject<HTMLDivElement>;
   startDrag: (id: string, e: React.PointerEvent) => void;
 }
 
@@ -42,6 +43,7 @@ export function usePuzzleDrag(args: UsePuzzleDragArgs): UsePuzzleDragResult {
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [initRect, setInitRect] = useState<Rect | null>(null);
   const floatingRef = useRef<HTMLDivElement>(null);
+  const glowRef = useRef<HTMLDivElement>(null);
   const active = useRef<ActiveDrag | null>(null);
 
   // Keep latest callbacks/getters without re-binding window listeners.
@@ -62,12 +64,12 @@ export function usePuzzleDrag(args: UsePuzzleDragArgs): UsePuzzleDragResult {
       const d = active.current;
       if (!d) return;
       const el = floatingRef.current;
+      const glow = glowRef.current;
 
       const slot = argsRef.current.getSlotRect(d.id);
       const draggedRect: Rect = { left: d.x, top: d.y, width: d.w, height: d.h };
       const correct = !cancelled && !!slot && isCorrectDrop(draggedRect, slot);
 
-      // No element to animate (or GSAP unavailable) → resolve immediately.
       if (!el) {
         finish(correct ? 'place' : 'return', d.id);
         return;
@@ -75,30 +77,75 @@ export function usePuzzleDrag(args: UsePuzzleDragArgs): UsePuzzleDragResult {
 
       try {
         if (correct && slot) {
+          // ── Correct snap ───────────────────────────────────────────────────
           gsap.to(el, {
             x: slot.left,
             y: slot.top,
             scale: 1,
             duration: TIMINGS.snapPlace,
             ease: 'power2.out',
-            onComplete: () => finish('place', d.id),
+            onComplete: () => {
+              // Scale bounce: 1 → 1.08 → 1, back.out(2)
+              gsap
+                .timeline({ onComplete: () => finish('place', d.id) })
+                .to(el, {
+                  scale: 1.08,
+                  duration: TIMINGS.snapBounce * 0.55,
+                  ease: 'power2.out',
+                })
+                .to(el, {
+                  scale: 1,
+                  duration: TIMINGS.snapBounce * 0.45,
+                  ease: 'back.out(2)',
+                });
+
+              // Radial glow flash — centered on the snap slot
+              if (glow) {
+                gsap.set(glow, {
+                  opacity: 0.6,
+                  x: slot.left + slot.width / 2,
+                  y: slot.top + slot.height / 2,
+                  xPercent: -50,
+                  yPercent: -50,
+                });
+                gsap.to(glow, {
+                  opacity: 0,
+                  duration: TIMINGS.snapGlow,
+                  ease: 'power2.out',
+                });
+              }
+
+              // Slot border pulse (handled by PuzzleBoard via callback)
+              argsRef.current.onSnapFeedback?.(slot);
+            },
           });
         } else {
-          // Animate back toward the tray, then return.
-          const tray = argsRef.current.getTrayRect();
-          const tx = tray ? tray.left + tray.width / 2 - d.w / 2 : d.x;
-          const ty = tray ? tray.top + 8 : d.y;
-          gsap.to(el, {
-            x: tx,
-            y: ty,
-            scale: 1,
-            duration: TIMINGS.pieceReturn,
-            ease: 'power2.out',
-            onComplete: () => finish('return', d.id),
-          });
+          // ── Wrong drop: shake then return to tray ──────────────────────────
+          if (!cancelled) argsRef.current.onWrongDrop?.();
+          const cx = d.x;
+          gsap
+            .timeline({
+              onComplete: () => {
+                const tray = argsRef.current.getTrayRect();
+                const tx = tray ? tray.left + tray.width / 2 - d.w / 2 : d.x;
+                const ty = tray ? tray.top + 8 : d.y;
+                gsap.to(el, {
+                  x: tx,
+                  y: ty,
+                  scale: 1,
+                  duration: TIMINGS.pieceReturn,
+                  ease: 'power2.out',
+                  onComplete: () => finish('return', d.id),
+                });
+              },
+            })
+            .to(el, { x: cx + 8, duration: 0.04, ease: 'power2.out' })
+            .to(el, { x: cx - 8, duration: 0.08, ease: 'power2.inOut' })
+            .to(el, { x: cx + 6, duration: 0.06, ease: 'power2.inOut' })
+            .to(el, { x: cx - 4, duration: 0.04, ease: 'power2.inOut' })
+            .to(el, { x: cx, duration: 0.03, ease: 'power2.out' });
         }
       } catch {
-        // GSAP failure must never strand the drag state.
         finish(correct ? 'place' : 'return', d.id);
       }
     },
@@ -174,5 +221,5 @@ export function usePuzzleDrag(args: UsePuzzleDragArgs): UsePuzzleDragResult {
     setDraggingId(id);
   }, []);
 
-  return { draggingId, initRect, floatingRef, startDrag };
+  return { draggingId, initRect, floatingRef, glowRef, startDrag };
 }

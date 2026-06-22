@@ -1,6 +1,9 @@
+import { useEffect } from 'react';
 import { useTelegram } from '@/hooks/useTelegram';
 import { useGameStatus } from '@/game/hooks/useGameStatus';
 import { useAudioSync } from '@/game/hooks/useAudioSync';
+import { useBgMusic } from '@/game/hooks/useBgMusic';
+import { audioManager } from '@/game/audio/AudioManager';
 import { useUIStore } from '@/store/uiStore';
 import { AppShell } from '@/components/layout/AppShell';
 import { LoadingOverlay } from '@/components/ui/LoadingOverlay';
@@ -20,12 +23,20 @@ export function App() {
   const scene     = useUIStore((s) => s.scene);
   const isLoading = useUIStore((s) => s.isLoading);
 
+  // Preload all Howl instances once on mount (before any user interaction)
+  useEffect(() => { audioManager.init(); }, []);
+
   // Subscribes to Telegram viewport + theme change events
   useTelegram();
 
+  // Sync audio store → AudioManager (mute/volume)
+  useAudioSync();
+
+  // Start / stop bg music based on active scene
+  useBgMusic();
+
   // Game-level reactive side-effects (safe to run even before game starts)
   useGameStatus();
-  useAudioSync();
 
   return (
     <AppShell>

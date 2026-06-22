@@ -69,13 +69,17 @@ export interface EffectPayload {
 
 // ─── Audio ──────────────────────────────────────────────────────────────────
 
-export type SoundKey =
-  | 'pickup'
-  | 'drag'
+export type MusicKey = 'bg';
+
+export type SfxKey =
   | 'snap'
   | 'wrong'
-  | 'complete'
-  | 'ambient';
+  | 'win'
+  | 'click'
+  | 'hint'
+  | 'loseHeart';
+
+export type SoundKey = MusicKey | SfxKey;
 
 // ─── Scene ──────────────────────────────────────────────────────────────────
 

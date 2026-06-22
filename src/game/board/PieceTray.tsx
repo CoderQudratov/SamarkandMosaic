@@ -9,6 +9,7 @@ interface PieceTrayProps {
   piecesById: Record<string, PuzzlePieceRuntime>;
   draggingId: string | null;
   onPieceDown: (id: string, e: ReactPointerEvent) => void;
+  locked?: boolean;
 }
 
 // Width of a tray piece, preserving its natural aspect ratio at tray height.
@@ -19,18 +20,18 @@ function trayPieceWidth(piece: PuzzlePieceRuntime): number {
 }
 
 export const PieceTray = forwardRef<HTMLDivElement, PieceTrayProps>(
-  function PieceTray({ baseUrl, trayOrder, piecesById, draggingId, onPieceDown }, ref) {
+  function PieceTray({ baseUrl, trayOrder, piecesById, draggingId, onPieceDown, locked }, ref) {
     return (
       <div
         ref={ref}
         style={{
           position: 'relative',
           flexShrink: 0,
-          // Ornamental Registan tray: sandstone base, gold top border
           background: `linear-gradient(180deg, ${COLORS.sandstone} 0%, #b8956a 60%, #9c7b50 100%)`,
           borderTop: `2px solid ${COLORS.gold}`,
           boxShadow:
             '0 -6px 24px rgba(0,0,0,0.5), 0 2px 0 rgba(255,255,255,0.15) inset',
+          pointerEvents: locked ? 'none' : undefined,
         }}
       >
         {/* Gold inner trim line */}

@@ -1,25 +1,56 @@
 import { create } from 'zustand';
 
-interface AudioStore {
-  muted: boolean;
-  sfxVolume: number;
-  ambientVolume: number;
-  ambientPlaying: boolean;
+const LS_KEY = 'smAudio_v2';
 
-  toggleMute: () => void;
-  setSfxVolume: (v: number) => void;
-  setAmbientVolume: (v: number) => void;
-  setAmbientPlaying: (playing: boolean) => void;
+interface AudioPersisted {
+  musicMuted: boolean;
+  sfxMuted: boolean;
 }
 
-export const useAudioStore = create<AudioStore>((set) => ({
-  muted: false,
-  sfxVolume: 0.8,
-  ambientVolume: 0.3,
-  ambientPlaying: false,
+function loadPersisted(): AudioPersisted {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (raw) return JSON.parse(raw) as AudioPersisted;
+  } catch { /* localStorage blocked in some sandboxes */ }
+  return { musicMuted: false, sfxMuted: false };
+}
 
-  toggleMute: () => set((s) => ({ muted: !s.muted })),
+function savePersisted(state: AudioPersisted): void {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(state));
+  } catch { /* noop */ }
+}
+
+interface AudioStore extends AudioPersisted {
+  musicVolume: number;
+  sfxVolume: number;
+
+  toggleMusic: () => void;
+  toggleSfx: () => void;
+  setMusicVolume: (v: number) => void;
+  setSfxVolume: (v: number) => void;
+}
+
+const persisted = loadPersisted();
+
+export const useAudioStore = create<AudioStore>((set, get) => ({
+  musicMuted: persisted.musicMuted,
+  sfxMuted: persisted.sfxMuted,
+  musicVolume: 0.35,
+  sfxVolume: 0.8,
+
+  toggleMusic: () => {
+    const next = !get().musicMuted;
+    set({ musicMuted: next });
+    savePersisted({ musicMuted: next, sfxMuted: get().sfxMuted });
+  },
+
+  toggleSfx: () => {
+    const next = !get().sfxMuted;
+    set({ sfxMuted: next });
+    savePersisted({ musicMuted: get().musicMuted, sfxMuted: next });
+  },
+
+  setMusicVolume: (musicVolume) => set({ musicVolume }),
   setSfxVolume: (sfxVolume) => set({ sfxVolume }),
-  setAmbientVolume: (ambientVolume) => set({ ambientVolume }),
-  setAmbientPlaying: (ambientPlaying) => set({ ambientPlaying }),
 }));

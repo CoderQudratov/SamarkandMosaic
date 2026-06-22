@@ -1,6 +1,7 @@
 import { useRef, useCallback } from 'react';
 import { gsap } from '@/lib/gsap';
 import { TIMINGS } from '@/constants';
+import { audioManager } from '@/game/audio/AudioManager';
 
 const BASE_SHADOW   = '0 4px 24px rgba(212,175,55,0.35), 0 1px 0 rgba(255,255,255,0.15) inset';
 const HOVER_SHADOW  = '0 8px 36px rgba(212,175,55,0.6),  0 1px 0 rgba(255,255,255,0.2) inset';
@@ -32,6 +33,7 @@ export function useButtonAnimation(disabled = false) {
 
   const onPointerDown = useCallback(() => {
     if (disabled || !ref.current) return;
+    audioManager.play('click');
     gsap.to(ref.current, {
       scale: 0.96,
       duration: TIMINGS.buttonPress,
