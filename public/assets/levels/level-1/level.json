@@ -1,39 +1,180 @@
 {
-  "id": "level-1",
+  "id": "level_1",
+  "rows": 7,
+  "cols": 4,
+  "tileSize": 146,
+  "imageWidth": 1024,
+  "imageHeight": 1024,
   "board": "board.png",
   "guide": "guide.png",
-  "pieces": [
+  "tiles": [
     {
-      "id": "piece-001",
-      "image": "pieces/piece_001.png",
-      "targetX": 0,
-      "targetY": 0,
-      "width": 627,
-      "height": 722
+      "id": 1,
+      "image": "tiles/tile_001.png",
+      "correctRow": 0,
+      "correctCol": 0
     },
     {
-      "id": "piece-002",
-      "image": "pieces/piece_002.png",
-      "targetX": 532,
-      "targetY": 0,
-      "width": 722,
-      "height": 722
+      "id": 2,
+      "image": "tiles/tile_002.png",
+      "correctRow": 0,
+      "correctCol": 1
     },
     {
-      "id": "piece-003",
-      "image": "pieces/piece_003.png",
-      "targetX": 0,
-      "targetY": 627,
-      "width": 627,
-      "height": 627
+      "id": 3,
+      "image": "tiles/tile_003.png",
+      "correctRow": 0,
+      "correctCol": 2
     },
     {
-      "id": "piece-004",
-      "image": "pieces/piece_004.png",
-      "targetX": 532,
-      "targetY": 627,
-      "width": 722,
-      "height": 627
+      "id": 4,
+      "image": "tiles/tile_004.png",
+      "correctRow": 0,
+      "correctCol": 3
+    },
+    {
+      "id": 5,
+      "image": "tiles/tile_005.png",
+      "correctRow": 1,
+      "correctCol": 0
+    },
+    {
+      "id": 6,
+      "image": "tiles/tile_006.png",
+      "correctRow": 1,
+      "correctCol": 1
+    },
+    {
+      "id": 7,
+      "image": "tiles/tile_007.png",
+      "correctRow": 1,
+      "correctCol": 2
+    },
+    {
+      "id": 8,
+      "image": "tiles/tile_008.png",
+      "correctRow": 1,
+      "correctCol": 3
+    },
+    {
+      "id": 9,
+      "image": "tiles/tile_009.png",
+      "correctRow": 2,
+      "correctCol": 0
+    },
+    {
+      "id": 10,
+      "image": "tiles/tile_010.png",
+      "correctRow": 2,
+      "correctCol": 1
+    },
+    {
+      "id": 11,
+      "image": "tiles/tile_011.png",
+      "correctRow": 2,
+      "correctCol": 2
+    },
+    {
+      "id": 12,
+      "image": "tiles/tile_012.png",
+      "correctRow": 2,
+      "correctCol": 3
+    },
+    {
+      "id": 13,
+      "image": "tiles/tile_013.png",
+      "correctRow": 3,
+      "correctCol": 0
+    },
+    {
+      "id": 14,
+      "image": "tiles/tile_014.png",
+      "correctRow": 3,
+      "correctCol": 1
+    },
+    {
+      "id": 15,
+      "image": "tiles/tile_015.png",
+      "correctRow": 3,
+      "correctCol": 2
+    },
+    {
+      "id": 16,
+      "image": "tiles/tile_016.png",
+      "correctRow": 3,
+      "correctCol": 3
+    },
+    {
+      "id": 17,
+      "image": "tiles/tile_017.png",
+      "correctRow": 4,
+      "correctCol": 0
+    },
+    {
+      "id": 18,
+      "image": "tiles/tile_018.png",
+      "correctRow": 4,
+      "correctCol": 1
+    },
+    {
+      "id": 19,
+      "image": "tiles/tile_019.png",
+      "correctRow": 4,
+      "correctCol": 2
+    },
+    {
+      "id": 20,
+      "image": "tiles/tile_020.png",
+      "correctRow": 4,
+      "correctCol": 3
+    },
+    {
+      "id": 21,
+      "image": "tiles/tile_021.png",
+      "correctRow": 5,
+      "correctCol": 0
+    },
+    {
+      "id": 22,
+      "image": "tiles/tile_022.png",
+      "correctRow": 5,
+      "correctCol": 1
+    },
+    {
+      "id": 23,
+      "image": "tiles/tile_023.png",
+      "correctRow": 5,
+      "correctCol": 2
+    },
+    {
+      "id": 24,
+      "image": "tiles/tile_024.png",
+      "correctRow": 5,
+      "correctCol": 3
+    },
+    {
+      "id": 25,
+      "image": "tiles/tile_025.png",
+      "correctRow": 6,
+      "correctCol": 0
+    },
+    {
+      "id": 26,
+      "image": "tiles/tile_026.png",
+      "correctRow": 6,
+      "correctCol": 1
+    },
+    {
+      "id": 27,
+      "image": "tiles/tile_027.png",
+      "correctRow": 6,
+      "correctCol": 2
+    },
+    {
+      "id": 28,
+      "image": "tiles/tile_028.png",
+      "correctRow": 6,
+      "correctCol": 3
     }
   ]
 }

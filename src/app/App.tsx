@@ -5,6 +5,7 @@ import { useAudioSync } from '@/game/hooks/useAudioSync';
 import { useBgMusic } from '@/game/hooks/useBgMusic';
 import { audioManager } from '@/game/audio/AudioManager';
 import { useUIStore } from '@/store/uiStore';
+import { useLevelStore } from '@/store/levelStore';
 import { AppShell } from '@/components/layout/AppShell';
 import { LoadingOverlay } from '@/components/ui/LoadingOverlay';
 import { ShopModal } from '@/components/shop/ShopModal';
@@ -18,15 +19,17 @@ import { MainMenuScreen }  from '@/screens/MainMenuScreen';
 import { LevelSelectScreen } from '@/screens/LevelSelectScreen';
 
 // Game phase
-import { PuzzleBoard }   from '@/game/board/PuzzleBoard';
-import { WinScene }      from '@/components/scenes/WinScene';
-import { GameOverScene } from '@/components/scenes/GameOverScene';
+import { PuzzleBoard }      from '@/game/board/PuzzleBoard';
+import { SwapPuzzleBoard }  from '@/game/board/SwapPuzzleBoard';
+import { WinScene }         from '@/components/scenes/WinScene';
+import { GameOverScene }    from '@/components/scenes/GameOverScene';
 
 export function App() {
   const scene     = useUIStore((s) => s.scene);
   const isLoading = useUIStore((s) => s.isLoading);
   const shopOpen  = useUIStore((s) => s.shopOpen);
   const setShopOpen = useUIStore((s) => s.setShopOpen);
+  const selectedLevelId = useLevelStore((s) => s.selectedLevelId);
 
   // Preload all Howl instances once on mount (before any user interaction)
   useEffect(() => { audioManager.init(); }, []);
@@ -55,7 +58,7 @@ export function App() {
 
         {/* ── Game phase — wrapped in error boundary ──────────────────────── */}
         <GameErrorBoundary>
-          {scene === 'game'     && <PuzzleBoard />}
+          {scene === 'game'     && (selectedLevelId === 1 ? <SwapPuzzleBoard /> : <PuzzleBoard />)}
           {scene === 'win'      && <WinScene />}
           {scene === 'gameover' && <GameOverScene />}
         </GameErrorBoundary>
