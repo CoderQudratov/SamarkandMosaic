@@ -4,13 +4,35 @@ export const CONFIG = {
   startHearts: 3,
   maxHearts: 3,
 
-  levels: {
-    1: { pieces: 4 },
-    2: { pieces: 6 },
-    3: { pieces: 8 },
-    4: { pieces: 10 },
-    5: { pieces: 12 },
+  // Coin economy — rewards and costs
+  coins: {
+    perSnap: 5,          // each correct placement
+    completion: 50,      // finishing a puzzle (base)
+    perfectBonus: 30,    // additional when no mistakes + no hint (3 stars)
+    speedBonus: 20,      // additional when cleared in < 60 s
+    hintCost: 25,        // buy a hint with coins
+    heartRefillCost: 40, // refill all hearts with coins
   },
+
+  // Post-level reward chest
+  chest: {
+    spawnChance: 0.30, // probability a chest appears after a win
+    coinMin: 30,       // coin reward range (inclusive)
+    coinMax: 100,
+  },
+
+  levels: {
+     1: { pieces:  4 },
+     2: { pieces:  6 },
+     3: { pieces:  8 },
+     4: { pieces: 10 },
+     5: { pieces: 12 },
+     6: { pieces: 16 },
+     7: { pieces: 20 },
+     8: { pieces: 24 },
+     9: { pieces: 28 },
+    10: { pieces: 32 },
+  } as Record<number, { pieces: number }>,
 
   board: {
     width: 600,

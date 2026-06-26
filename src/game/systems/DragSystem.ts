@@ -17,16 +17,17 @@ interface UsePuzzleDragArgs {
   onReturn: (id: string) => void;
   onSnapFeedback?: (slotRect: Rect) => void;
   // Fired only for intentional wrong drops (not blur/cancel). Used for heart loss.
-  onWrongDrop?: () => void;
+  onWrongDrop?: (dropRect: Rect) => void;
 }
 
 interface ActiveDrag {
   id: string;
-  grabX: number; // pointer offset from piece top-left
+  pointerId: number; // the specific pointer finger that started the drag
+  grabX: number;     // pointer offset from piece top-left
   grabY: number;
   w: number;
   h: number;
-  x: number; // current top-left (viewport)
+  x: number;         // current top-left (viewport)
   y: number;
 }
 
@@ -85,17 +86,17 @@ export function usePuzzleDrag(args: UsePuzzleDragArgs): UsePuzzleDragResult {
             duration: TIMINGS.snapPlace,
             ease: 'power2.out',
             onComplete: () => {
-              // Scale bounce: 1 → 1.08 → 1, back.out(2)
+              // Piece settle: 1 → 1.04 → 1, soft ease
               gsap
                 .timeline({ onComplete: () => finish('place', d.id) })
                 .to(el, {
-                  scale: 1.08,
-                  duration: TIMINGS.snapBounce * 0.55,
+                  scale: 1.06,
+                  duration: TIMINGS.snapBounce * 0.5,
                   ease: 'power2.out',
                 })
                 .to(el, {
                   scale: 1,
-                  duration: TIMINGS.snapBounce * 0.45,
+                  duration: TIMINGS.snapBounce * 0.5,
                   ease: 'back.out(2)',
                 });
 
@@ -120,30 +121,40 @@ export function usePuzzleDrag(args: UsePuzzleDragArgs): UsePuzzleDragResult {
             },
           });
         } else {
-          // ── Wrong drop: shake then return to tray ──────────────────────────
-          if (!cancelled) argsRef.current.onWrongDrop?.();
+          // ── Wrong drop: FX → shake → return to tray ───────────────────────
+          if (!cancelled) {
+            const dropRect: Rect = { left: d.x, top: d.y, width: d.w, height: d.h };
+            argsRef.current.onWrongDrop?.(dropRect);
+          }
           const cx = d.x;
+          // Shake: left → right → left → center, 8px, 0.22s
           gsap
             .timeline({
               onComplete: () => {
                 const tray = argsRef.current.getTrayRect();
                 const tx = tray ? tray.left + tray.width / 2 - d.w / 2 : d.x;
                 const ty = tray ? tray.top + 8 : d.y;
+                // Return with brief settle: arrives at 1.03 then settles to 1
                 gsap.to(el, {
                   x: tx,
                   y: ty,
-                  scale: 1,
-                  duration: TIMINGS.pieceReturn,
+                  scale: 1.03,
+                  duration: TIMINGS.pieceReturn * 0.75,
                   ease: 'power2.out',
-                  onComplete: () => finish('return', d.id),
+                  onComplete: () =>
+                    gsap.to(el, {
+                      scale: 1,
+                      duration: TIMINGS.pieceReturn * 0.25,
+                      ease: 'power2.out',
+                      onComplete: () => finish('return', d.id),
+                    }),
                 });
               },
             })
-            .to(el, { x: cx + 8, duration: 0.04, ease: 'power2.out' })
-            .to(el, { x: cx - 8, duration: 0.08, ease: 'power2.inOut' })
-            .to(el, { x: cx + 6, duration: 0.06, ease: 'power2.inOut' })
-            .to(el, { x: cx - 4, duration: 0.04, ease: 'power2.inOut' })
-            .to(el, { x: cx, duration: 0.03, ease: 'power2.out' });
+            .to(el, { x: cx - 8, duration: 0.04, ease: 'power2.out' })
+            .to(el, { x: cx + 8, duration: 0.08, ease: 'power2.inOut' })
+            .to(el, { x: cx - 4, duration: 0.06, ease: 'power2.inOut' })
+            .to(el, { x: cx, duration: 0.04, ease: 'power2.out' });
         }
       } catch {
         finish(correct ? 'place' : 'return', d.id);
@@ -158,7 +169,7 @@ export function usePuzzleDrag(args: UsePuzzleDragArgs): UsePuzzleDragResult {
 
     const onMove = (e: PointerEvent) => {
       const d = active.current;
-      if (!d) return;
+      if (!d || e.pointerId !== d.pointerId) return; // ignore secondary fingers
       d.x = e.clientX - d.grabX;
       d.y = e.clientY - d.grabY;
       const el = floatingRef.current;
@@ -171,12 +182,16 @@ export function usePuzzleDrag(args: UsePuzzleDragArgs): UsePuzzleDragResult {
     window.addEventListener('pointerup', onUp);
     window.addEventListener('pointercancel', onCancel);
     window.addEventListener('blur', onCancel);
+    // touchcancel fires on iOS when a system gesture (Control Centre, notification)
+    // interrupts the touch. Without this the piece gets stuck mid-drag.
+    window.addEventListener('touchcancel', onCancel, { passive: true });
 
     return () => {
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
       window.removeEventListener('pointercancel', onCancel);
       window.removeEventListener('blur', onCancel);
+      window.removeEventListener('touchcancel', onCancel);
     };
   }, [draggingId, endDrag]);
 
@@ -216,7 +231,7 @@ export function usePuzzleDrag(args: UsePuzzleDragArgs): UsePuzzleDragResult {
     const x = e.clientX - grabX;
     const y = e.clientY - grabY;
 
-    active.current = { id, grabX, grabY, w, h, x, y };
+    active.current = { id, pointerId: e.pointerId, grabX, grabY, w, h, x, y };
     setInitRect({ left: x, top: y, width: w, height: h });
     setDraggingId(id);
   }, []);

@@ -1,5 +1,4 @@
 import {
-  initTelegramSDK,
   isTelegramEnv,
   getSafeArea,
   applySafeAreaToCSSVars,
@@ -8,22 +7,19 @@ import {
 } from '@/services/telegram/telegram';
 import { getTelegramUser, isMockMode } from '@/services/telegram/telegramUser';
 import { initTheme } from '@/services/telegram/telegramTheme';
-import { supabaseService } from '@/services/supabase.service';
-import { storageService } from '@/services/storage.service';
 import { usePlayerStore } from '@/store/playerStore';
 import { useUIStore } from '@/store/uiStore';
-
-// Resolves with null after `ms` milliseconds — used to cap network waits.
-function timeout(ms: number): Promise<null> {
-  return new Promise((resolve) => setTimeout(() => resolve(null), ms));
-}
+import { saveSystem } from '@/game/systems/SaveSystem';
+import { syncManager } from '@/game/systems/SyncManager';
+import { init as telegramInit } from '@/integrations/telegram';
+import { sync } from '@/services/sync.service';
 
 // ─── Phase 1: synchronous ────────────────────────────────────────────────────
 // Everything here is instant (no network, no disk). Safe to run BEFORE render.
 export function bootstrapSync(): void {
-  // Telegram SDK — ready(), expand(), enableClosingConfirmation()
-  // Silent no-op in browser / non-Telegram contexts
-  initTelegramSDK();
+  // Telegram SDK — ready(), expand(), enableClosingConfirmation(),
+  // disableVerticalSwipes(), header/bg colour. Silent no-op in browser.
+  telegramInit();
 
   // Persist environment flag so UI can adapt
   useUIStore.getState().setIsTelegram(isTelegramEnv());
@@ -47,44 +43,40 @@ export function bootstrapSync(): void {
   // Telegram user from initDataUnsafe — synchronous read, no network
   const profile = getTelegramUser();
   usePlayerStore.getState().setProfile(profile);
+
+  // Upsert profile to Supabase (fire-and-forget — won't block render).
+  sync.profile();
+
+  // ── SaveSystem ────────────────────────────────────────────────────────────
+  // load() runs after stores have initialised from their per-key keys so it
+  // can intelligently merge/supplement (stats + backup restoration).
+  saveSystem.load();
+  // init() wires Zustand subscriptions for auto-save on relevant state changes.
+  saveSystem.init();
+
+  // Push a final sync when the tab is hidden (page-hide / background on mobile).
+  // This is best-effort — some browsers don't fire it reliably.
+  if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') syncManager.push();
+    }, { once: false, passive: true });
+  }
 }
 
 // ─── Phase 2: async ─────────────────────────────────────────────────────────
 // Network calls only. Runs AFTER render — never blocks SplashScreen.
 export async function bootstrapAsync(): Promise<void> {
   const { profile } = usePlayerStore.getState();
-  if (!profile) return;
+  if (!profile || profile.telegramId === 0) return; // guest/mock user — skip
 
-  // ── Local storage (fast, synchronous under the hood) ────────────────────
+  // Three-source sync: localStorage + Supabase + Telegram CloudStorage.
+  // Resolves conflicts, hydrates stores, writes merged snapshot back.
+  // Falls back to local-only on any failure (timeout = 3s).
   try {
-    type Progress = ReturnType<typeof usePlayerStore.getState>['progress'];
-    const local = storageService.get<Progress>('progress');
-    if (local) {
-      usePlayerStore.getState().setProgress(local);
-    }
-  } catch {
-    // localStorage unavailable in some Telegram sandbox contexts — ignore
-  }
-
-  // ── Supabase (network — capped at 3 s to prevent indefinite hang) ───────
-  if (profile.telegramId === 0) return; // guest/mock user — skip remote
-
-  try {
-    const result = await Promise.race([
-      supabaseService.loadPlayerProgress(profile.telegramId),
-      timeout(3000),
-    ]);
-
-    if (result) {
-      // Remote wins only if the player has more progress than the local cache
-      const current = usePlayerStore.getState().progress;
-      if (result.totalSnaps >= current.totalSnaps) {
-        usePlayerStore.getState().setProgress(result);
-      }
-    }
+    await syncManager.bootSync(profile.telegramId);
   } catch (err) {
-    // Network failure — local cache already applied above, app continues fine
+    // Should never throw — syncManager swallows all errors internally.
     // eslint-disable-next-line no-console
-    console.warn('[bootstrap] Supabase load failed — using local cache', err);
+    console.warn('[bootstrap] SyncManager.bootSync threw unexpectedly.', err);
   }
 }

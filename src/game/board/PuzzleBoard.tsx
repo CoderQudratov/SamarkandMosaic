@@ -10,6 +10,8 @@ import { gsap } from '@/lib/gsap';
 import { useBoardStore, selectProgress } from '@/store/boardStore';
 import { useGameStore } from '@/store/gameStore';
 import { useUIStore } from '@/store/uiStore';
+import { usePlayerStore } from '@/store/playerStore';
+import { useLevelStore } from '@/store/levelStore';
 import {
   loadLevel,
   levelBaseUrl,
@@ -24,15 +26,30 @@ import { GameHUD } from '@/game/ui/GameHUD';
 import { WinParticles } from '@/game/effects/WinParticles';
 import { CornerFlourish } from '@/components/ui/CornerFlourish';
 import { Modal } from '@/components/modals/Modal';
+import { ChestModal } from '@/components/modals/ChestModal';
 import { PrimaryButton } from '@/components/buttons/PrimaryButton';
 import { SecondaryButton } from '@/components/buttons/SecondaryButton';
-import { COLORS, TIMINGS } from '@/constants';
+import { COLORS, TIMINGS, CONFIG } from '@/constants';
 import { audioManager } from '@/game/audio/AudioManager';
+import { hapticsManager } from '@/game/haptics/HapticsManager';
+import { triggerSnapFX } from '@/game/effects/snapFX';
+import { triggerWrongFX } from '@/game/effects/wrongFX';
+import { spawnHintParticles } from '@/game/effects/hintFX';
+import { spawnCoinReward } from '@/game/effects/coinFX';
+import { saveSystem } from '@/game/systems/SaveSystem';
+import { registerBackButton, unregisterBackButton } from '@/integrations/telegram';
+import { sync } from '@/services/sync.service';
+import { syncManager } from '@/game/systems/SyncManager';
+import { calcLevelReward, setLastWinPayload, getHintCost, getHeartRefillCost } from '@/game/systems/EconomySystem';
+import {
+  spawnWinConfetti,
+  spawnMosaicShards,
+  spawnScreenEdgeFlash,
+  spawnCoinSparkles,
+} from '@/game/effects/winFX';
 import { useAudioStore } from '@/store/audioStore';
 import type { BoardLayout } from '@/game/types';
 import type { Rect } from '@/game/utils/geometry';
-
-const LEVEL_ID = 'level-1';
 
 // Image that silently disappears if the asset is missing (graceful fallback).
 function FadingImage({
@@ -72,6 +89,11 @@ export function PuzzleBoard() {
   const pieces = useBoardStore((s) => s.pieces);
   const trayOrder = useBoardStore((s) => s.trayOrder);
   const progress = useBoardStore(selectProgress);
+  const coins = usePlayerStore((s) => s.coins); // live HUD balance
+
+  // Which level to load — chosen on the level-select screen (defaults to 1).
+  const selectedLevelId = useLevelStore((s) => s.selectedLevelId);
+  const LEVEL_ID = `level-${selectedLevelId}`;
 
   // Audio state for pause modal toggles
   const musicMuted = useAudioStore((s) => s.musicMuted);
@@ -84,25 +106,52 @@ export function PuzzleBoard() {
   const [showParticles, setShowParticles] = useState(false);
   const [particleOrigin, setParticleOrigin] = useState({ x: 0, y: 0 });
   const [isComplete, setIsComplete] = useState(false);
+  const [showChest, setShowChest] = useState(false);
+  const [showHeartRefill, setShowHeartRefill] = useState(false);
+  const [insufficientCoins, setInsufficientCoins] = useState<string | null>(null);
   const wasComplete = useRef(false);
+  const boardRevealedRef = useRef(false); // fires the reveal animation only once per load
+  // Tracks wrong drops in the current run — used to compute the star score.
+  // Reset at level load and replay so replays start with a clean slate.
+  const mistakesRef = useRef(0);
+  // Timestamp (ms) when the level became playable — used for the speed bonus.
+  const levelStartRef = useRef(0);
 
   const areaRef = useRef<HTMLDivElement>(null);
   const trayRef = useRef<HTMLDivElement>(null);
+  const winTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hintOverlayRef = useRef<HTMLDivElement>(null);
+  const hintShimmerRef = useRef<HTMLDivElement>(null);
+  const hintBoardGlowRef = useRef<HTMLDivElement>(null);
+  const hintBtnRef = useRef<HTMLButtonElement>(null);
   const hintActiveRef = useRef(false);
 
   const [layout, setLayout] = useState<BoardLayout | null>(null);
   const [areaOrigin, setAreaOrigin] = useState({ left: 0, top: 0 });
 
-  // ── Load level on mount — also reset hearts ───────────────────────────────
+  // ── Telegram BackButton ──────────────────────────────────────────────────────
+  // In Telegram, the native back chevron acts as "Pause / exit puzzle" — it opens
+  // the pause menu so the player can intentionally leave without losing progress.
   useEffect(() => {
-    useGameStore.getState().resetHearts();
+    registerBackButton(() => {
+      if (!isComplete) setIsPaused(true);
+    });
+    return () => unregisterBackButton();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isComplete]);
+
+  // ── Load level on mount ────────────────────────────────────────────────────
+  // Hearts are a persistent, regenerating resource — they are NOT reset per level.
+  useEffect(() => {
+    mistakesRef.current = 0; // fresh run
+    boardRevealedRef.current = false; // allow reveal animation for this load
+    useGameStore.getState().applyRefill(); // grant any hearts earned while away
     useGameStore.getState().setStatus('playing');
     loadLevel(LEVEL_ID);
     return () => {
       useBoardStore.getState().reset();
     };
-  }, []);
+  }, [LEVEL_ID]);
 
   // ── Responsive board measurement ──────────────────────────────────────────
   const measure = useCallback(() => {
@@ -118,6 +167,7 @@ export function PuzzleBoard() {
 
   useEffect(() => {
     if (loadState !== 'ready') return;
+    levelStartRef.current = Date.now(); // start speed-bonus timer when board is playable
     measure();
     const ro = new ResizeObserver(measure);
     if (areaRef.current) ro.observe(areaRef.current);
@@ -171,7 +221,21 @@ export function PuzzleBoard() {
   const onSnapFeedback = useCallback(
     (slotViewport: Rect) => {
       audioManager.play('snap');
+      hapticsManager.trigger('success');
+      // Fire DOM snap FX (golden flash, glow pulse, ceramic dust) at viewport coords
+      triggerSnapFX(slotViewport);
+
+      // Coin reward: +5 per correct snap (fires once per placement). The snap
+      // sound is the audio cue here — no extra click to avoid layering.
+      usePlayerStore.getState().addCoins(CONFIG.coins.perSnap);
+      spawnCoinReward(
+        CONFIG.coins.perSnap,
+        slotViewport.left + slotViewport.width / 2,
+        slotViewport.top + slotViewport.height / 2,
+      );
+
       if (!layout) return;
+      // Slot highlight: brief gold border inside the board container
       setSnapFlashSlot({
         left: slotViewport.left - layout.left,
         top: slotViewport.top - layout.top,
@@ -183,15 +247,21 @@ export function PuzzleBoard() {
   );
 
   // ── Lives system ─────────────────────────────────────────────────────────
-  const onWrongDrop = useCallback(() => {
+  const onWrongDrop = useCallback((dropRect: Rect) => {
     if (isComplete) return;
+    mistakesRef.current += 1; // count this mistake for the star score
+    saveSystem.trackMistake();
+    syncManager.bumpVersion(); // heart loss
+    triggerWrongFX(dropRect);
     audioManager.play('wrong');
     audioManager.play('loseHeart');
+    hapticsManager.trigger('warning');                           // wrong placement
+    setTimeout(() => hapticsManager.trigger('error'), 60);      // life lost (staggered)
     useGameStore.getState().loseHeart();
     const remaining = useGameStore.getState().hearts;
     if (remaining === 0) {
-      // Delay scene change so the shake animation is fully visible
-      setTimeout(() => useUIStore.getState().setScene('gameover'), 700);
+      // Offer a paid refill before going to gameover.
+      setTimeout(() => setShowHeartRefill(true), 700);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isComplete]);
@@ -199,44 +269,134 @@ export function PuzzleBoard() {
   // ── Hint system ───────────────────────────────────────────────────────────
   const handleHint = useCallback(() => {
     if (hintUsed || hintActiveRef.current || isComplete) return;
-    const el = hintOverlayRef.current;
-    if (!el) return;
+
+    // Consume a free hint from inventory first; if none left, buy with coins.
+    const hintOk = usePlayerStore.getState().spendHint(getHintCost());
+    if (!hintOk) {
+      setInsufficientCoins(`Need ${getHintCost()} coins for a hint`);
+      setTimeout(() => setInsufficientCoins(null), 2500);
+      return;
+    }
+
+    const overlayEl  = hintOverlayRef.current;
+    const shimmerEl  = hintShimmerRef.current;
+    const glowEl     = hintBoardGlowRef.current;
+    const btnEl      = hintBtnRef.current;
+    if (!overlayEl) return;
     hintActiveRef.current = true;
+
+    // 7 & 8 — Sound + haptic on press
     audioManager.play('hint');
+    hapticsManager.trigger('medium');
+    saveSystem.trackHintUsed();
+    syncManager.bumpVersion(); // hint used
+
+    // 5 — Lamp button scale pulse (fires immediately on press)
+    if (btnEl) {
+      try {
+        gsap.killTweensOf(btnEl);
+        gsap
+          .timeline()
+          .to(btnEl, { scale: 1.15, duration: TIMINGS.hintBtnPulse * 0.5, ease: 'power2.out' })
+          .to(btnEl, { scale: 1, duration: TIMINGS.hintBtnPulse * 0.5, ease: 'back.out(2)' });
+      } catch { /* noop */ }
+    }
+
+    // 4 — Magical particles across board footprint
+    if (layout) {
+      spawnHintParticles({
+        left: layout.left,
+        top: layout.top,
+        width: layout.width,
+        height: layout.height,
+      });
+    }
 
     try {
-      gsap
-        .timeline({
-          onComplete: () => {
-            setHintUsed(true);
-            hintActiveRef.current = false;
-          },
-        })
-        .set(el, { display: 'block', opacity: 0 })
-        .to(el, { opacity: 0.82, duration: 0.3, ease: 'power2.out' })
-        .to(el, { opacity: 0.82, duration: 2.5 })
-        .to(el, { opacity: 0, duration: 0.35, ease: 'power2.in' })
-        .set(el, { display: 'none' });
+      const tl = gsap.timeline({
+        onComplete: () => {
+          setHintUsed(true);
+          hintActiveRef.current = false;
+        },
+      });
+
+      // 1 — Ornament reveal
+      tl.set(overlayEl, { display: 'block', opacity: 0 });
+      tl.to(overlayEl, { opacity: 0.85, duration: TIMINGS.hintReveal, ease: 'power2.out' });
+
+      // 6 — Hold then fade out
+      tl.to(overlayEl, { opacity: 0.85, duration: TIMINGS.hintHold });
+      tl.to(overlayEl, { opacity: 0, duration: TIMINGS.hintFadeOut, ease: 'power2.in' });
+      tl.set(overlayEl, { display: 'none' });
+
+      // 2 — Golden shimmer sweep (runs concurrently with reveal)
+      if (shimmerEl) {
+        tl.set(shimmerEl, { xPercent: -100 }, 0.05);
+        tl.to(shimmerEl, {
+          xPercent: 100,
+          duration: TIMINGS.hintShimmer,
+          ease: 'power1.inOut',
+        }, 0.05);
+      }
+
+      // 3 — Board glow pulse: 0 → 1 → 0 over hintBoardGlow seconds (runs at t=0)
+      if (glowEl) {
+        const half = TIMINGS.hintBoardGlow * 0.5;
+        tl.to(glowEl, { opacity: 1, duration: half, ease: 'power2.out' }, 0);
+        tl.to(glowEl, { opacity: 0, duration: half, ease: 'power2.in' }, half);
+      }
     } catch {
       setHintUsed(true);
       hintActiveRef.current = false;
     }
-  }, [hintUsed, isComplete]);
+  }, [hintUsed, isComplete, layout]);
 
   // ── Pause menu handlers ───────────────────────────────────────────────────
-  const handleResume = useCallback(() => setIsPaused(false), []);
+  const handleResume = useCallback(() => {
+    hapticsManager.trigger('light');
+    setIsPaused(false);
+  }, []);
 
   const handleReplay = useCallback(() => {
     setIsPaused(false);
     setHintUsed(false);
     setShowParticles(false);
+    setShowChest(false);
+    useUIStore.getState().setShopOpen(false);
+    setShowHeartRefill(false);
+    setInsufficientCoins(null);
     wasComplete.current = false;
     setIsComplete(false);
+    hintActiveRef.current = false;
+
+    // Cancel pending win scene transition (replay within 2.2s window)
+    if (winTimerRef.current) {
+      clearTimeout(winTimerRef.current);
+      winTimerRef.current = null;
+    }
 
     // Reset tray opacity in case win sequence faded it
     if (trayRef.current) gsap.set(trayRef.current, { opacity: 1 });
 
-    useGameStore.getState().resetHearts();
+    // Kill hint animations in case replay fires mid-hint
+    if (hintOverlayRef.current) {
+      gsap.killTweensOf(hintOverlayRef.current);
+      gsap.set(hintOverlayRef.current, { display: 'none', opacity: 0 });
+    }
+    if (hintBoardGlowRef.current) {
+      gsap.killTweensOf(hintBoardGlowRef.current);
+      gsap.set(hintBoardGlowRef.current, { opacity: 0 });
+    }
+    if (completionTextRef.current) {
+      gsap.killTweensOf(completionTextRef.current);
+      gsap.set(completionTextRef.current, { opacity: 0 });
+    }
+
+    mistakesRef.current = 0; // fresh attempt
+    levelStartRef.current = 0; // reset; will be set again when loadState → ready
+    boardRevealedRef.current = false; // allow reveal animation for next load
+    // Hearts persist across replays — only refresh from the regen clock.
+    useGameStore.getState().applyRefill();
     useGameStore.getState().setStatus('playing');
     useBoardStore.getState().reset();
     loadLevel(LEVEL_ID);
@@ -265,6 +425,20 @@ export function PuzzleBoard() {
 
   // ── Win reveal ────────────────────────────────────────────────────────────
   const boardContainerRef = useRef<HTMLDivElement>(null);
+  const completionTextRef = useRef<HTMLDivElement>(null);
+
+  // ── Board entrance reveal (fires once per level load) ─────────────────────
+  useLayoutEffect(() => {
+    if (!layout || !boardContainerRef.current || boardRevealedRef.current) return;
+    boardRevealedRef.current = true;
+    try {
+      gsap.fromTo(
+        boardContainerRef.current,
+        { opacity: 0, scale: 0.96 },
+        { opacity: 1, scale: 1, duration: TIMINGS.boardReveal, ease: 'power2.out', clearProps: 'scale' },
+      );
+    } catch { /* noop */ }
+  }, [layout]);
   const boardRevealRef = useRef<HTMLDivElement>(null);
   const guideWrapRef = useRef<HTMLDivElement>(null);
   const goldWashRef = useRef<HTMLDivElement>(null);
@@ -278,15 +452,75 @@ export function PuzzleBoard() {
 
     setIsComplete(true); // freeze input immediately
 
-    // Stop bg music and play win fanfare
+    // 7 — Sound + haptics
     audioManager.stopBg(400);
     audioManager.play('win');
+    hapticsManager.trigger('win');
 
-    // Particles burst from board center
+    // Board center coordinates for all origin-based FX
     const boardCx = layout ? layout.left + layout.width / 2 : window.innerWidth / 2;
     const boardCy = layout ? layout.top + layout.height / 2 : window.innerHeight * 0.4;
+
+    // 1 — Center burst (WinParticles component)
     setParticleOrigin({ x: boardCx, y: boardCy });
     setShowParticles(true);
+
+    // 2, 4, 5, 6 — DOM FX (fire immediately, self-cleaning)
+    spawnScreenEdgeFlash();
+    spawnMosaicShards(boardCx, boardCy);
+    spawnWinConfetti();
+    spawnCoinSparkles();
+
+    // ── Star score ─────────────────────────────────────────────────────────────
+    // 3 stars: no mistakes AND no hint used
+    // 2 stars: made at least one mistake (but no hint used)
+    // 1 star:  hint used (overrides mistake count)
+    const earnedStars = hintUsed ? 1 : mistakesRef.current > 0 ? 2 : 3;
+    const player = usePlayerStore.getState();
+
+    // Progression: mark this level complete + record best stars (unlocks next).
+    player.completeLevel(selectedLevelId, earnedStars);
+    saveSystem.trackWin();
+    syncManager.bumpVersion(); // level complete
+    // Fire-and-forget remote sync (progress + economy).
+    sync.levelComplete(selectedLevelId, earnedStars);
+
+    // ── Economy reward breakdown (guarded by wasComplete — fires once) ────────
+    const elapsedMs = levelStartRef.current > 0 ? Date.now() - levelStartRef.current : Infinity;
+    const breakdown = calcLevelReward(earnedStars, elapsedMs, selectedLevelId);
+
+    // Store the breakdown so WinScene can display it.
+    setLastWinPayload({ breakdown, earnedStars });
+
+    player.addCoins(breakdown.total);
+    audioManager.play('click');
+    spawnCoinReward(breakdown.base, boardCx, boardCy);
+    if (breakdown.perfectBonus > 0) {
+      setTimeout(() => spawnCoinReward(breakdown.perfectBonus, boardCx, boardCy - 44), 240);
+    }
+    if (breakdown.speedBonus > 0) {
+      setTimeout(() => spawnCoinReward(breakdown.speedBonus, boardCx, boardCy - 86), 480);
+    }
+
+    // 4 — "Puzzle Restored" text fades in at 700ms, then the scene transitions.
+    const completionTimer = setTimeout(() => {
+      const textEl = completionTextRef.current;
+      if (textEl) {
+        try {
+          gsap.fromTo(textEl, { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' });
+        } catch { /* noop */ }
+      }
+    }, 700);
+
+    // 8 — After the win FX, either show a reward chest (30%) or go to the win
+    // scene. The chest appears BEFORE the win screen; claim/skip then advances.
+    const spawnChest = Math.random() < CONFIG.chest.spawnChance;
+    if (winTimerRef.current) clearTimeout(winTimerRef.current);
+    winTimerRef.current = setTimeout(() => {
+      clearTimeout(completionTimer);
+      if (spawnChest) setShowChest(true);
+      else useUIStore.getState().setScene('win');
+    }, TIMINGS.winSceneDelay * 1000);
 
     const boardEl  = boardContainerRef.current;
     const revealEl = boardRevealRef.current;
@@ -301,50 +535,44 @@ export function PuzzleBoard() {
       if (guideEl)  guideEl.style.opacity  = '0';
       if (washEl)   washEl.style.opacity   = '0';
       if (trayEl)   trayEl.style.opacity   = '0';
-      setTimeout(() => useUIStore.getState().setScene('win'), 1200);
     };
 
     try {
       if (shineEl) gsap.set(shineEl, { scale: 0.6, opacity: 0 });
 
-      const tl = gsap.timeline({
-        onComplete: () =>
-          setTimeout(() => useUIStore.getState().setScene('win'), 1200),
-      });
+      const tl = gsap.timeline();
+      const halfGlow = TIMINGS.winGlowWave * 0.5;
 
       // t=0 — fade out guide, gold wash, tray
       if (guideEl) tl.to(guideEl, { opacity: 0, duration: 0.4, ease: 'power2.out' }, 0);
       if (washEl)  tl.to(washEl,  { opacity: 0, duration: 0.4, ease: 'power2.out' }, 0);
       if (trayEl)  tl.to(trayEl,  { opacity: 0, duration: 0.4, ease: 'power2.out' }, 0);
 
-      // t=0 — board scale pulse (1 → 1.03 → 1, 0.6s) + glow burst
+      // 3 — Board scale 1 → 1.08 → 1 and glow 0 → 0.8 → 0 over winGlowWave (0.8s)
       if (boardEl) {
-        tl.to(boardEl, { scale: 1.03, duration: 0.3, ease: 'power2.out' }, 0)
-          .to(boardEl, { scale: 1, duration: 0.3, ease: 'back.out(2)' }, 0.3);
+        tl.to(boardEl, { scale: 1.08, duration: halfGlow, ease: 'power2.out' }, 0);
+        tl.to(boardEl, { scale: 1, duration: halfGlow, ease: 'back.out(2)' }, halfGlow);
       }
       if (glowEl) {
-        tl.to(glowEl, { opacity: 1, duration: 0.3, ease: 'power2.out' }, 0)
-          .to(glowEl, { opacity: 0, duration: 0.3, ease: 'power2.in' }, 0.3);
+        tl.to(glowEl, { opacity: 0.8, duration: halfGlow, ease: 'power2.out' }, 0);
+        tl.to(glowEl, { opacity: 0, duration: halfGlow, ease: 'power2.in' }, halfGlow);
       }
 
-      // t=0.15 — center shine: scale 0.6→1.4 + opacity 0→0.7→0 over 0.5s
+      // t=0.15 — center shine burst
       if (shineEl) {
         tl.to(shineEl, { scale: 1.4, duration: 0.5, ease: 'power1.in' }, 0.15);
         tl.to(shineEl, { opacity: 0.7, duration: 0.25, ease: 'power2.out' }, 0.15);
         tl.to(shineEl, { opacity: 0, duration: 0.25, ease: 'power2.in' }, 0.40);
       }
 
-      // t=0.3 — board.png fades in (timeline ends ~t=0.8)
+      // t=0.3 — board.png fades in
       if (revealEl) {
-        tl.to(revealEl, {
-          opacity: 1,
-          duration: TIMINGS.completeEffect,
-          ease: 'power2.inOut',
-        }, 0.3);
+        tl.to(revealEl, { opacity: 1, duration: TIMINGS.completeEffect, ease: 'power2.inOut' }, 0.3);
       }
     } catch {
       fallback();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [progress.placed, progress.total]);
 
   const handlePieceDown = useCallback(
@@ -394,10 +622,15 @@ export function PuzzleBoard() {
         total={progress.total}
         percent={progress.percent}
         hearts={hearts}
+        coins={coins}
         hintUsed={hintUsed}
-        onBurger={() => setIsPaused(true)}
+        onBurger={() => { hapticsManager.trigger('light'); setIsPaused(true); }}
         onHint={handleHint}
+        onShop={() => {
+          if (!isComplete && !draggingId) useUIStore.getState().setShopOpen(true);
+        }}
         disabled={isComplete}
+        hintBtnRef={hintBtnRef}
       />
 
       {/* ── Board area ────────────────────────────────────────────────────── */}
@@ -571,7 +804,7 @@ export function PuzzleBoard() {
               <FadingImage src={`${baseUrl}/${level.board}`} />
             </div>
 
-            {/* Hint overlay — board.png at 80% opacity, shown for 2.5s when hint used */}
+            {/* Hint overlay — board.png at 85% opacity, shown for 2.5s when hint used */}
             <div
               ref={hintOverlayRef}
               style={{
@@ -585,13 +818,24 @@ export function PuzzleBoard() {
               }}
             >
               <FadingImage src={`${baseUrl}/${level.board}`} />
+              {/* Golden shimmer sweep — GSAP moves it left → right */}
+              <div
+                ref={hintShimmerRef}
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  background:
+                    'linear-gradient(90deg, transparent 0%, rgba(212,175,55,0.18) 35%, rgba(255,255,255,0.38) 46%, rgba(31,95,168,0.12) 54%, rgba(212,175,55,0.18) 65%, transparent 100%)',
+                  pointerEvents: 'none',
+                }}
+              />
               {/* Soft vignette so it reads as a hint, not a full reveal */}
               <div
                 style={{
                   position: 'absolute',
                   inset: 0,
                   background:
-                    'radial-gradient(circle at 50% 50%, transparent 30%, rgba(26,15,0,0.45) 85%)',
+                    'radial-gradient(circle at 50% 50%, transparent 30%, rgba(26,15,0,0.4) 85%)',
                   pointerEvents: 'none',
                 }}
               />
@@ -609,6 +853,21 @@ export function PuzzleBoard() {
                 opacity: 0,
                 boxShadow:
                   '0 0 60px rgba(212,175,55,0.9), 0 0 100px rgba(212,175,55,0.5), 0 0 140px rgba(212,175,55,0.25)',
+              }}
+            />
+
+            {/* Hint glow — gold + turquoise pulse when hint fires */}
+            <div
+              ref={hintBoardGlowRef}
+              aria-hidden
+              style={{
+                position: 'absolute',
+                inset: -20,
+                borderRadius: '14px',
+                pointerEvents: 'none',
+                opacity: 0,
+                boxShadow:
+                  '0 0 40px rgba(212,175,55,0.65), 0 0 70px rgba(31,95,168,0.4), 0 0 100px rgba(212,175,55,0.22)',
               }}
             />
 
@@ -631,6 +890,40 @@ export function PuzzleBoard() {
             <CornerFlourish corner="br" size={22} inset={-2} />
           </div>
         )}
+
+        {/* "Puzzle Restored" — fades in 700ms after final piece, sits above board */}
+        <div
+          ref={completionTextRef}
+          style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            pointerEvents: 'none',
+            zIndex: 20,
+            opacity: 0,
+          }}
+        >
+          <div
+            style={{
+              fontFamily: 'var(--font-display)',
+              fontSize: 'clamp(18px, 5vw, 26px)',
+              fontWeight: 700,
+              letterSpacing: '5px',
+              textTransform: 'uppercase',
+              color: COLORS.gold,
+              textShadow: '0 0 30px rgba(212,175,55,0.8), 0 2px 12px rgba(0,0,0,0.6)',
+              textAlign: 'center',
+              padding: '12px 24px',
+              background: 'rgba(26,15,0,0.55)',
+              borderRadius: '6px',
+              border: '1px solid rgba(212,175,55,0.3)',
+            }}
+          >
+            Puzzle Restored
+          </div>
+        </div>
       </div>
 
       {/* ── Tray ──────────────────────────────────────────────────────────── */}
@@ -702,6 +995,69 @@ export function PuzzleBoard() {
         originX={particleOrigin.x}
         originY={particleOrigin.y}
       />
+
+      {/* ── Reward chest (shown before the win scene, 30% chance) ──────────── */}
+      <ChestModal
+        isOpen={showChest}
+        onClose={() => {
+          setShowChest(false);
+          useUIStore.getState().setScene('win');
+        }}
+      />
+
+      {/* ── Heart refill modal (shown when hearts reach 0) ─────────────────── */}
+      <Modal isOpen={showHeartRefill} onClose={() => {}} title="Out of Hearts" locked>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <p style={{ fontFamily: 'var(--font-body)', fontSize: '12px', lineHeight: 1.7, color: COLORS.sandstone, textAlign: 'center' }}>
+            Refill all hearts for <strong style={{ color: COLORS.gold }}>{getHeartRefillCost()} coins</strong>?
+          </p>
+          <PrimaryButton
+            size="md"
+            fullWidth
+            onClick={() => {
+              const ok = usePlayerStore.getState().spendCoins(getHeartRefillCost());
+              if (ok) {
+                useGameStore.getState().resetHearts();
+                setShowHeartRefill(false);
+              } else {
+                setInsufficientCoins(`Need ${getHeartRefillCost()} coins`);
+                setTimeout(() => setInsufficientCoins(null), 2200);
+              }
+            }}
+          >
+            ♥ &nbsp; Refill Hearts ({getHeartRefillCost()})
+          </PrimaryButton>
+          <SecondaryButton size="md" fullWidth onClick={() => { setShowHeartRefill(false); useUIStore.getState().setScene('gameover'); }}>
+            Give Up
+          </SecondaryButton>
+        </div>
+      </Modal>
+
+      {/* ── Insufficient coins toast ────────────────────────────────────────── */}
+      {insufficientCoins && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: 'calc(140px + var(--safe-area-bottom, 0px))',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            padding: '10px 20px',
+            borderRadius: '6px',
+            background: 'rgba(26,15,0,0.92)',
+            border: '1px solid rgba(204,34,0,0.5)',
+            color: COLORS.sandstone,
+            fontFamily: 'var(--font-heading)',
+            fontSize: '11px',
+            letterSpacing: '1px',
+            whiteSpace: 'nowrap',
+            zIndex: 300,
+            pointerEvents: 'none',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+          }}
+        >
+          {insufficientCoins}
+        </div>
+      )}
 
       {/* ── Pause modal ───────────────────────────────────────────────────── */}
       <Modal isOpen={isPaused} onClose={handleResume} title="Paused" locked={false}>

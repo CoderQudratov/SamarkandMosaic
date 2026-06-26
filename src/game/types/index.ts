@@ -88,6 +88,7 @@ export type SceneKey =
   | 'welcome'
   | 'nameInput'
   | 'mainMenu'
+  | 'levelSelect'
   | 'game'
   | 'win'
   | 'gameover';
@@ -109,6 +110,8 @@ export interface PlayerProgress {
   completedLevels: number[];
   highestLevel: number;
   totalSnaps: number;
+  /** Best stars earned per level id (1–3). */
+  stars: Record<number, number>;
 }
 
 // ─── Game Runtime ────────────────────────────────────────────────────────────

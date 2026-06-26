@@ -10,6 +10,11 @@ import { Modal } from '@/components/modals/Modal';
 import { useScreenTransition } from '@/hooks/useScreenTransition';
 import { usePlayerStore } from '@/store/playerStore';
 import { useAudioStore } from '@/store/audioStore';
+import { useUIStore } from '@/store/uiStore';
+import { saveSystem } from '@/game/systems/SaveSystem';
+import { getDailyStatus } from '@/game/systems/DailyRewardSystem';
+import { DailyRewardModal } from '@/components/ui/DailyRewardModal';
+import { useHeartRefill, formatCountdown } from '@/game/hooks/useHeartRefill';
 import { CONFIG } from '@/constants';
 
 // Heart & coin icons as inline SVG components
@@ -54,14 +59,17 @@ export function MainMenuScreen() {
   const buttonsRef   = useRef<HTMLDivElement>(null);
 
   const getDisplayName = usePlayerStore((s) => s.getDisplayName);
-  const hearts = CONFIG.startHearts;
-  const coins  = 0;
+  const { hearts, full: heartsFull, msUntilNext } = useHeartRefill();
+  const coins  = usePlayerStore((s) => s.coins);
 
   const musicMuted = useAudioStore((s) => s.musicMuted);
   const sfxMuted   = useAudioStore((s) => s.sfxMuted);
 
   const [showSettings, setShowSettings] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  // Show daily reward modal once per mount (check runs synchronously — no network).
+  const [showDailyReward, setShowDailyReward] = useState(() => getDailyStatus().claimable);
 
   // Stagger entrance
   useEffect(() => {
@@ -74,8 +82,7 @@ export function MainMenuScreen() {
   }, []);
 
   const handlePlay = () => {
-    // Game phase hook-in point — navigateTo('game') when board is ready
-    navigateTo('game');
+    navigateTo('levelSelect');
   };
 
   return (
@@ -145,11 +152,28 @@ export function MainMenuScreen() {
 
         {/* Hearts + Coins */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
-          {/* Hearts */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-            {Array.from({ length: CONFIG.maxHearts }).map((_, i) => (
-              <HeartIcon key={i} filled={i < hearts} />
-            ))}
+          {/* Hearts + regen timer */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+              {Array.from({ length: CONFIG.maxHearts }).map((_, i) => (
+                <HeartIcon key={i} filled={i < hearts} />
+              ))}
+            </div>
+            {!heartsFull && (
+              <span
+                style={{
+                  fontFamily: 'var(--font-heading)',
+                  fontSize: '8px',
+                  letterSpacing: '1px',
+                  color: COLORS.sandstone,
+                  opacity: 0.7,
+                  lineHeight: 1,
+                  fontVariantNumeric: 'tabular-nums',
+                }}
+              >
+                {formatCountdown(msUntilNext)}
+              </span>
+            )}
           </div>
 
           {/* Divider */}
@@ -157,21 +181,29 @@ export function MainMenuScreen() {
             style={{ width: '1px', height: '16px', background: 'rgba(212,175,55,0.2)' }}
           />
 
-          {/* Coins */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+          {/* Coins — clickable, opens shop */}
+          <button
+            onClick={() => useUIStore.getState().setShopOpen(true)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              padding: '4px 10px',
+              borderRadius: '20px',
+              background: 'rgba(212,175,55,0.1)',
+              border: '1px solid rgba(212,175,55,0.28)',
+              cursor: 'pointer',
+              fontFamily: 'var(--font-heading)',
+              fontSize: '12px',
+              fontWeight: 600,
+              color: COLORS.gold,
+              letterSpacing: '1px',
+            }}
+            aria-label="Open Bazaar"
+          >
             <CoinIcon />
-            <span
-              style={{
-                fontFamily: 'var(--font-heading)',
-                fontSize: '12px',
-                fontWeight: 600,
-                color: COLORS.gold,
-                letterSpacing: '1px',
-              }}
-            >
-              {coins}
-            </span>
-          </div>
+            <span>{coins}</span>
+          </button>
         </div>
       </div>
 
@@ -274,6 +306,14 @@ export function MainMenuScreen() {
             ⚙ &nbsp; Settings
           </SecondaryButton>
 
+          <SecondaryButton
+            size="md"
+            fullWidth
+            onClick={() => useUIStore.getState().setShopOpen(true)}
+          >
+            ✦ &nbsp; Bazaar
+          </SecondaryButton>
+
           <SecondaryButton size="md" fullWidth onClick={() => setShowExitConfirm(true)}>
             ✕ &nbsp; Exit
           </SecondaryButton>
@@ -305,7 +345,17 @@ export function MainMenuScreen() {
             onToggle={() => useAudioStore.getState().toggleSfx()}
           />
 
-          <div style={{ marginTop: '16px' }}>
+          <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <SecondaryButton
+              size="sm"
+              fullWidth
+              onClick={() => {
+                setShowSettings(false);
+                useUIStore.getState().setShopOpen(true);
+              }}
+            >
+              ✦ &nbsp; Bazaar (Shop)
+            </SecondaryButton>
             <SecondaryButton
               size="sm"
               fullWidth
@@ -316,7 +366,59 @@ export function MainMenuScreen() {
             >
               Change Name
             </SecondaryButton>
+            <SecondaryButton
+              size="sm"
+              fullWidth
+              onClick={() => {
+                setShowSettings(false);
+                setShowResetConfirm(true);
+              }}
+            >
+              ↺ &nbsp; Reset Progress
+            </SecondaryButton>
           </div>
+        </div>
+      </Modal>
+
+      {/* ── Reset confirm modal ────────────────────────────────────────────── */}
+      <Modal
+        isOpen={showResetConfirm}
+        onClose={() => setShowResetConfirm(false)}
+        title="Reset Progress?"
+      >
+        <p
+          style={{
+            fontFamily: 'var(--font-body)',
+            fontSize: '12px',
+            lineHeight: 1.7,
+            letterSpacing: '0.5px',
+            color: COLORS.sandstone,
+            textAlign: 'center',
+            marginBottom: '24px',
+          }}
+        >
+          All levels, stars, coins and hints will be erased.
+          <br />
+          This cannot be undone.
+        </p>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <SecondaryButton
+            size="sm"
+            fullWidth
+            onClick={() => setShowResetConfirm(false)}
+          >
+            Cancel
+          </SecondaryButton>
+          <PrimaryButton
+            size="sm"
+            fullWidth
+            onClick={() => {
+              saveSystem.reset();
+              setShowResetConfirm(false);
+            }}
+          >
+            Reset
+          </PrimaryButton>
         </div>
       </Modal>
 
@@ -358,6 +460,13 @@ export function MainMenuScreen() {
           </PrimaryButton>
         </div>
       </Modal>
+
+      {/* ── Daily reward modal — opens automatically when claimable ────────── */}
+      <DailyRewardModal
+        isOpen={showDailyReward}
+        onClose={() => setShowDailyReward(false)}
+      />
+
     </div>
   );
 }

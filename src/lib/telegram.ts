@@ -51,6 +51,58 @@ export interface TelegramHapticFeedback {
   selectionChanged(): void;
 }
 
+export interface TelegramMainButton {
+  text: string;
+  color: string;
+  textColor: string;
+  isVisible: boolean;
+  isActive: boolean;
+  isProgressVisible: boolean;
+  setText(text: string): TelegramMainButton;
+  onClick(callback: () => void): TelegramMainButton;
+  offClick(callback: () => void): TelegramMainButton;
+  show(): TelegramMainButton;
+  hide(): TelegramMainButton;
+  enable(): TelegramMainButton;
+  disable(): TelegramMainButton;
+  showProgress(leaveActive?: boolean): TelegramMainButton;
+  hideProgress(): TelegramMainButton;
+  setParams(params: {
+    text?: string;
+    color?: string;
+    text_color?: string;
+    is_active?: boolean;
+    is_visible?: boolean;
+  }): TelegramMainButton;
+}
+
+export interface TelegramBackButton {
+  isVisible: boolean;
+  onClick(callback: () => void): TelegramBackButton;
+  offClick(callback: () => void): TelegramBackButton;
+  show(): TelegramBackButton;
+  hide(): TelegramBackButton;
+}
+
+export interface TelegramCloudStorage {
+  setItem(
+    key: string,
+    value: string,
+    callback?: (error: string | null, stored: boolean) => void,
+  ): void;
+  getItem(
+    key: string,
+    callback: (error: string | null, value: string) => void,
+  ): void;
+  getItems(
+    keys: string[],
+    callback: (error: string | null, values: Record<string, string>) => void,
+  ): void;
+  removeItem(key: string, callback?: (error: string | null) => void): void;
+  removeItems(keys: string[], callback?: (error: string | null) => void): void;
+  getKeys(callback: (error: string | null, keys: string[]) => void): void;
+}
+
 export type TelegramEventType =
   | 'themeChanged'
   | 'viewportChanged'
@@ -110,6 +162,21 @@ export interface TelegramWebApp {
 
   // Haptic
   HapticFeedback: TelegramHapticFeedback;
+
+  // UI Buttons (TWA 6.1+)
+  MainButton: TelegramMainButton;
+  BackButton: TelegramBackButton;
+
+  // Cloud Storage (TWA 6.9+)
+  CloudStorage: TelegramCloudStorage;
+
+  // Display
+  requestFullscreen?(): void;
+  exitFullscreen?(): void;
+  disableVerticalSwipes?(): void;
+  enableVerticalSwipes?(): void;
+  setHeaderColor?(color: string): void;
+  setBackgroundColor?(color: string): void;
 }
 
 declare global {

@@ -6,6 +6,8 @@ import type { SceneKey } from '@/game/types';
 
 export function useScreenTransition() {
   const containerRef = useRef<HTMLDivElement>(null);
+  // Prevents double-tap bugs: locks navigateTo for the duration of the exit animation.
+  const transitioning = useRef(false);
 
   // Fade in on mount
   useEffect(() => {
@@ -17,8 +19,11 @@ export function useScreenTransition() {
     );
   }, []);
 
-  // Fade out then change scene
+  // Fade out then change scene (double-tap safe)
   const navigateTo = useCallback((scene: SceneKey) => {
+    if (transitioning.current) return;
+    transitioning.current = true;
+
     if (!containerRef.current) {
       useUIStore.getState().setScene(scene);
       return;
@@ -30,6 +35,7 @@ export function useScreenTransition() {
       ease: 'power2.in',
       onComplete: () => {
         useUIStore.getState().setScene(scene);
+        // Component unmounts after setScene — no need to reset the flag.
       },
     });
   }, []);

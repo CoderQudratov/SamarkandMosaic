@@ -1,0 +1,135 @@
+{
+  "id": "level-6",
+  "board": "board.png",
+  "guide": "guide.png",
+  "pieces": [
+    {
+      "id": "piece-001",
+      "image": "pieces/piece_001.png",
+      "targetX": 0,
+      "targetY": 0,
+      "width": 300,
+      "height": 300
+    },
+    {
+      "id": "piece-002",
+      "image": "pieces/piece_002.png",
+      "targetX": 300,
+      "targetY": 0,
+      "width": 300,
+      "height": 300
+    },
+    {
+      "id": "piece-003",
+      "image": "pieces/piece_003.png",
+      "targetX": 600,
+      "targetY": 0,
+      "width": 300,
+      "height": 300
+    },
+    {
+      "id": "piece-004",
+      "image": "pieces/piece_004.png",
+      "targetX": 900,
+      "targetY": 0,
+      "width": 300,
+      "height": 300
+    },
+    {
+      "id": "piece-005",
+      "image": "pieces/piece_005.png",
+      "targetX": 0,
+      "targetY": 300,
+      "width": 300,
+      "height": 300
+    },
+    {
+      "id": "piece-006",
+      "image": "pieces/piece_006.png",
+      "targetX": 300,
+      "targetY": 300,
+      "width": 300,
+      "height": 300
+    },
+    {
+      "id": "piece-007",
+      "image": "pieces/piece_007.png",
+      "targetX": 600,
+      "targetY": 300,
+      "width": 300,
+      "height": 300
+    },
+    {
+      "id": "piece-008",
+      "image": "pieces/piece_008.png",
+      "targetX": 900,
+      "targetY": 300,
+      "width": 300,
+      "height": 300
+    },
+    {
+      "id": "piece-009",
+      "image": "pieces/piece_009.png",
+      "targetX": 0,
+      "targetY": 600,
+      "width": 300,
+      "height": 300
+    },
+    {
+      "id": "piece-010",
+      "image": "pieces/piece_010.png",
+      "targetX": 300,
+      "targetY": 600,
+      "width": 300,
+      "height": 300
+    },
+    {
+      "id": "piece-011",
+      "image": "pieces/piece_011.png",
+      "targetX": 600,
+      "targetY": 600,
+      "width": 300,
+      "height": 300
+    },
+    {
+      "id": "piece-012",
+      "image": "pieces/piece_012.png",
+      "targetX": 900,
+      "targetY": 600,
+      "width": 300,
+      "height": 300
+    },
+    {
+      "id": "piece-013",
+      "image": "pieces/piece_013.png",
+      "targetX": 0,
+      "targetY": 900,
+      "width": 300,
+      "height": 300
+    },
+    {
+      "id": "piece-014",
+      "image": "pieces/piece_014.png",
+      "targetX": 300,
+      "targetY": 900,
+      "width": 300,
+      "height": 300
+    },
+    {
+      "id": "piece-015",
+      "image": "pieces/piece_015.png",
+      "targetX": 600,
+      "targetY": 900,
+      "width": 300,
+      "height": 300
+    },
+    {
+      "id": "piece-016",
+      "image": "pieces/piece_016.png",
+      "targetX": 900,
+      "targetY": 900,
+      "width": 300,
+      "height": 300
+    }
+  ]
+}

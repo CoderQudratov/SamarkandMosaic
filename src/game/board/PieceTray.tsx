@@ -1,7 +1,8 @@
-import { forwardRef, type PointerEvent as ReactPointerEvent } from 'react';
+import { forwardRef, useEffect, useRef, type PointerEvent as ReactPointerEvent } from 'react';
+import { gsap } from '@/lib/gsap';
 import { PuzzlePiece } from '@/game/pieces/PuzzlePiece';
 import type { PuzzlePieceRuntime } from '@/game/types';
-import { CONFIG, COLORS } from '@/constants';
+import { CONFIG, COLORS, TIMINGS } from '@/constants';
 
 interface PieceTrayProps {
   baseUrl: string;
@@ -21,6 +22,32 @@ function trayPieceWidth(piece: PuzzlePieceRuntime): number {
 
 export const PieceTray = forwardRef<HTMLDivElement, PieceTrayProps>(
   function PieceTray({ baseUrl, trayOrder, piecesById, draggingId, onPieceDown, locked }, ref) {
+    const scrollRef = useRef<HTMLDivElement>(null);
+    const animatedRef = useRef(false);
+
+    // Stagger-spawn pieces upward on the first time they appear.
+    useEffect(() => {
+      if (animatedRef.current || trayOrder.length === 0 || !scrollRef.current) return;
+      animatedRef.current = true;
+      const items = scrollRef.current.querySelectorAll(':scope > div');
+      if (!items.length) return;
+      try {
+        gsap.fromTo(
+          items,
+          { opacity: 0, y: 18 },
+          {
+            opacity: 1,
+            y: 0,
+            duration: 0.32,
+            stagger: TIMINGS.trayStagger,
+            ease: 'power2.out',
+            delay: 0.18,
+            clearProps: 'opacity,transform',
+          },
+        );
+      } catch { /* noop — non-critical animation */ }
+    }, [trayOrder.length]);
+
     return (
       <div
         ref={ref}
@@ -48,6 +75,7 @@ export const PieceTray = forwardRef<HTMLDivElement, PieceTrayProps>(
         />
 
         <div
+          ref={scrollRef}
           style={{
             display: 'flex',
             alignItems: 'center',

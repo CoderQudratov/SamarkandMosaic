@@ -1,6 +1,9 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type RefObject } from 'react';
 import { gsap } from '@/lib/gsap';
 import { COLORS, CONFIG } from '@/constants';
+import { audioManager } from '@/game/audio/AudioManager';
+import { hapticsManager } from '@/game/haptics/HapticsManager';
+import { useHeartRefill, formatCountdown } from '@/game/hooks/useHeartRefill';
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
@@ -23,6 +26,26 @@ function HeartIcon({ filled }: { filled: boolean }) {
         stroke={filled ? '#CC2200' : 'rgba(204,34,0,0.35)'}
         strokeWidth="1.5"
       />
+    </svg>
+  );
+}
+
+function CoinIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+      <circle cx="7.5" cy="7.5" r="6.5" fill={COLORS.gold} opacity="0.95" />
+      <circle cx="7.5" cy="7.5" r="4.5" fill="none" stroke="rgba(26,15,0,0.4)" strokeWidth="0.8" />
+      <text
+        x="7.5" y="10.5"
+        textAnchor="middle"
+        fontFamily="serif"
+        fontSize="7"
+        fontWeight="bold"
+        fill="#1a0f00"
+        opacity="0.6"
+      >
+        ✦
+      </text>
     </svg>
   );
 }
@@ -57,10 +80,13 @@ interface GameHUDProps {
   total: number;
   percent: number;
   hearts: number;
+  coins: number;
   hintUsed: boolean;
   onBurger: () => void;
   onHint: () => void;
+  onShop?: () => void;
   disabled?: boolean;
+  hintBtnRef?: RefObject<HTMLButtonElement>;
 }
 
 export function GameHUD({
@@ -69,20 +95,27 @@ export function GameHUD({
   total,
   percent,
   hearts,
+  coins,
   hintUsed,
   onBurger,
   onHint,
+  onShop,
   disabled,
+  hintBtnRef,
 }: GameHUDProps) {
   const heartRefs = useRef<(HTMLDivElement | null)[]>([]);
   const prevHeartsRef = useRef(hearts);
 
-  // Shake + flash the heart that just became empty
+  // Live regeneration countdown (ticks every second, grants due hearts).
+  const { full: heartsFull, msUntilNext } = useHeartRefill();
+
+  // Animate hearts on change: shake/flash on loss, pop+glow on refill.
   useEffect(() => {
     const prev = prevHeartsRef.current;
+
     if (hearts < prev) {
-      const lostIdx = hearts; // 0-based index of newly-emptied heart
-      const el = heartRefs.current[lostIdx];
+      // Lost a heart — shake + flash the one that just emptied.
+      const el = heartRefs.current[hearts]; // 0-based index of newly-emptied heart
       if (el) {
         try {
           gsap.killTweensOf(el);
@@ -94,7 +127,29 @@ export function GameHUD({
             .to(el, { x: 0, scale: 1, duration: 0.05 });
         } catch { /* noop */ }
       }
+    } else if (hearts > prev) {
+      // Regenerated — pop + glow each heart that just refilled.
+      for (let idx = prev; idx < hearts; idx++) {
+        const el = heartRefs.current[idx];
+        if (!el) continue;
+        try {
+          gsap.killTweensOf(el);
+          // Pop: scale 1 → 1.2 → 1
+          gsap.timeline()
+            .fromTo(el, { scale: 1 }, { scale: 1.2, duration: 0.18, ease: 'back.out(3)' })
+            .to(el, { scale: 1, duration: 0.16, ease: 'power2.out' });
+          // Soft glow that fades out.
+          gsap.fromTo(
+            el,
+            { filter: 'drop-shadow(0 0 8px rgba(204,34,0,0.95))' },
+            { filter: 'drop-shadow(0 0 0px rgba(204,34,0,0))', duration: 0.55, ease: 'power2.out' },
+          );
+        } catch { /* noop */ }
+      }
+      audioManager.play('click'); // soft refill sound
+      hapticsManager.trigger('light');
     }
+
     prevHeartsRef.current = hearts;
   }, [hearts]);
 
@@ -133,14 +188,40 @@ export function GameHUD({
           gap: '8px',
         }}
       >
-        {/* Left — burger */}
-        <button
-          onClick={disabled ? undefined : onBurger}
-          style={iconBtn}
-          aria-label="Pause menu"
-        >
-          <BurgerIcon />
-        </button>
+        {/* Left — burger + coin balance */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+          <button
+            onClick={disabled ? undefined : onBurger}
+            style={iconBtn}
+            aria-label="Pause menu"
+          >
+            <BurgerIcon />
+          </button>
+
+          {/* Coin balance — tappable to open shop */}
+          <button
+            onClick={onShop}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              padding: '3px 8px',
+              borderRadius: '20px',
+              background: 'rgba(212,175,55,0.1)',
+              border: '1px solid rgba(212,175,55,0.25)',
+              cursor: onShop ? 'pointer' : 'default',
+              fontFamily: 'var(--font-heading)',
+              fontSize: '12px',
+              fontWeight: 600,
+              letterSpacing: '0.5px',
+              color: COLORS.gold,
+            }}
+            aria-label="Open shop"
+          >
+            <CoinIcon />
+            <span style={{ minWidth: '12px', textAlign: 'center' }}>{coins}</span>
+          </button>
+        </div>
 
         {/* Center — title + piece count */}
         <div
@@ -181,17 +262,43 @@ export function GameHUD({
 
         {/* Right — hearts + hint */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-          {/* Hearts */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
-            {Array.from({ length: CONFIG.maxHearts }).map((_, i) => (
-              <div
-                key={i}
-                ref={(el) => { heartRefs.current[i] = el; }}
-                style={{ display: 'flex', alignItems: 'center' }}
+          {/* Hearts + regen timer */}
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '1px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+              {Array.from({ length: CONFIG.maxHearts }).map((_, i) => (
+                <div
+                  key={i}
+                  ref={(el) => { heartRefs.current[i] = el; }}
+                  style={{ display: 'flex', alignItems: 'center' }}
+                >
+                  <HeartIcon filled={i < hearts} />
+                </div>
+              ))}
+            </div>
+
+            {/* Countdown to next heart — only while not full */}
+            {!heartsFull && (
+              <span
+                style={{
+                  fontFamily: 'var(--font-heading)',
+                  fontSize: '8px',
+                  letterSpacing: '1px',
+                  color: COLORS.sandstone,
+                  opacity: 0.7,
+                  lineHeight: 1,
+                  fontVariantNumeric: 'tabular-nums',
+                }}
               >
-                <HeartIcon filled={i < hearts} />
-              </div>
-            ))}
+                {formatCountdown(msUntilNext)}
+              </span>
+            )}
           </div>
 
           {/* Divider */}
@@ -201,12 +308,14 @@ export function GameHUD({
 
           {/* Hint button */}
           <button
+            ref={hintBtnRef}
             onClick={!disabled && !hintUsed ? onHint : undefined}
             style={{
               ...iconBtn,
               opacity: hintUsed ? 0.3 : 0.9,
               cursor: hintUsed || disabled ? 'default' : 'pointer',
               transition: 'opacity 0.3s ease',
+              transformOrigin: 'center center',
             }}
             aria-label={hintUsed ? 'Hint used' : 'Use hint'}
             disabled={hintUsed || disabled}

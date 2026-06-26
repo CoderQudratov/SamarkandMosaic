@@ -27,6 +27,9 @@ interface UIStore {
   theme: AppTheme;
   safeArea: SafeArea;
 
+  /** Global shop modal toggle — a single instance is mounted in App.tsx. */
+  shopOpen: boolean;
+
   // Actions
   setScene: (scene: SceneKey) => void;
   setLoading: (loading: boolean) => void;
@@ -36,6 +39,7 @@ interface UIStore {
   setIsTelegram: (value: boolean) => void;
   setTheme: (theme: AppTheme) => void;
   setSafeArea: (area: SafeArea) => void;
+  setShopOpen: (open: boolean) => void;
 }
 
 export const useUIStore = create<UIStore>((set) => ({
@@ -47,6 +51,8 @@ export const useUIStore = create<UIStore>((set) => ({
   theme: DEFAULT_THEME,
   safeArea: DEFAULT_SAFE_AREA,
 
+  shopOpen: false,
+
   setScene: (scene) => set({ scene }),
   setLoading: (isLoading) => set({ isLoading }),
   setLoadingProgress: (loadingProgress) => set({ loadingProgress }),
@@ -55,4 +61,5 @@ export const useUIStore = create<UIStore>((set) => ({
   setIsTelegram: (isTelegram) => set({ isTelegram }),
   setTheme: (theme) => set({ theme }),
   setSafeArea: (safeArea) => set({ safeArea }),
+  setShopOpen: (shopOpen) => set({ shopOpen }),
 }));

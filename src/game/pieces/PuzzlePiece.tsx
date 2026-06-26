@@ -1,4 +1,4 @@
-import { useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { memo, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import type { PuzzlePieceDef } from '@/game/types';
 import { COLORS } from '@/constants';
 
@@ -21,7 +21,9 @@ function pieceLabel(id: string): string {
   return m ? m[1] : id;
 }
 
-export function PuzzlePiece({
+// Memoized: re-renders only when def.id, size, or variant changes.
+// This prevents every placed piece from repainting on unrelated store updates.
+export const PuzzlePiece = memo(function PuzzlePiece({
   def,
   baseUrl,
   width,
@@ -104,4 +106,4 @@ export function PuzzlePiece({
       )}
     </div>
   );
-}
+});

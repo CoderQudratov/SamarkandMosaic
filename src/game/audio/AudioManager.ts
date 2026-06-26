@@ -62,6 +62,35 @@ class AudioManagerClass {
     window.addEventListener('touchstart', unlock, { once: true, capture: true, passive: true });
   }
 
+  /**
+   * Resolves once every Howl has finished loading (or errored — a missing file
+   * must never hang boot), capped by `timeoutMs`. Used by the BootLoader so the
+   * loading screen can account for audio readiness.
+   */
+  whenReady(timeoutMs = 6000): Promise<void> {
+    this.init();
+    const all = [
+      ...Object.values(this.music),
+      ...Object.values(this.sfx),
+    ].filter(Boolean) as Howl[];
+
+    if (all.length === 0) return Promise.resolve();
+
+    const perHowl = all.map(
+      (h) =>
+        new Promise<void>((resolve) => {
+          if (h.state() === 'loaded') return resolve();
+          h.once('load', () => resolve());
+          h.once('loaderror', () => resolve());
+        }),
+    );
+
+    return Promise.race([
+      Promise.all(perHowl).then(() => undefined),
+      new Promise<void>((resolve) => setTimeout(resolve, timeoutMs)),
+    ]);
+  }
+
   // ── Music (looping bg) ───────────────────────────────────────────────────
 
   playBg(): void {

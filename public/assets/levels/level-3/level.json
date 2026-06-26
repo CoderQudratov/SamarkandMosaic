@@ -1,0 +1,71 @@
+{
+  "id": "level-3",
+  "board": "board.png",
+  "guide": "guide.png",
+  "pieces": [
+    {
+      "id": "piece-001",
+      "image": "pieces/piece_001.png",
+      "targetX": 0,
+      "targetY": 0,
+      "width": 300,
+      "height": 300
+    },
+    {
+      "id": "piece-002",
+      "image": "pieces/piece_002.png",
+      "targetX": 300,
+      "targetY": 0,
+      "width": 300,
+      "height": 300
+    },
+    {
+      "id": "piece-003",
+      "image": "pieces/piece_003.png",
+      "targetX": 600,
+      "targetY": 0,
+      "width": 300,
+      "height": 300
+    },
+    {
+      "id": "piece-004",
+      "image": "pieces/piece_004.png",
+      "targetX": 900,
+      "targetY": 0,
+      "width": 300,
+      "height": 300
+    },
+    {
+      "id": "piece-005",
+      "image": "pieces/piece_005.png",
+      "targetX": 0,
+      "targetY": 300,
+      "width": 300,
+      "height": 300
+    },
+    {
+      "id": "piece-006",
+      "image": "pieces/piece_006.png",
+      "targetX": 300,
+      "targetY": 300,
+      "width": 300,
+      "height": 300
+    },
+    {
+      "id": "piece-007",
+      "image": "pieces/piece_007.png",
+      "targetX": 600,
+      "targetY": 300,
+      "width": 300,
+      "height": 300
+    },
+    {
+      "id": "piece-008",
+      "image": "pieces/piece_008.png",
+      "targetX": 900,
+      "targetY": 300,
+      "width": 300,
+      "height": 300
+    }
+  ]
+}

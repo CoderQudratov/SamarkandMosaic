@@ -10,6 +10,8 @@
 html, body {
   width: 100%;
   height: 100%;
+  /* 100dvh accounts for mobile browser chrome (address bar) collapsing */
+  height: 100dvh;
   overflow: hidden;
   background: #1a0f00;
   color: #F8F1E5;
@@ -17,7 +19,11 @@ html, body {
   -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
   user-select: none;
+  /* Prevent rubber-band overscroll / pull-to-close interfering with drag */
   overscroll-behavior: none;
+  /* iOS: prevent text-size adjustment after orientation change */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 #root {
@@ -129,6 +135,43 @@ input:-webkit-autofill:focus {
 .ornamental-corners::after {
   bottom: 6px; right: 6px;
   border-width: 0 1.5px 1.5px 0;
+}
+
+/* ── Touch and pointer precision ────────────────────────────────────────── */
+
+/* Draggable pieces: disable native touch handling so pointer events are clean */
+.puzzle-piece-draggable {
+  touch-action: none;
+  -webkit-user-drag: none;
+  user-drag: none;
+  /* GPU-composited layer so GSAP transforms don't trigger layout */
+  will-change: transform;
+}
+
+/* Prevent ghost-image on iOS long-press during drag */
+.puzzle-piece-draggable img {
+  -webkit-touch-callout: none;
+  pointer-events: none;
+}
+
+/* ── Performance: GPU-promoted elements ─────────────────────────────────── */
+
+/* Applied to the floating drag element and win particles container */
+.gpu-layer {
+  will-change: transform, opacity;
+  transform: translateZ(0);
+}
+
+/* ── Font loading optimisation ──────────────────────────────────────────── */
+
+/* Block rendering until Cinzel loads — prevents FOUT on first paint */
+@font-face {
+  font-family: 'Cinzel';
+  font-display: block;
+}
+@font-face {
+  font-family: 'Cinzel Decorative';
+  font-display: block;
 }
 
 /* ── Keyframe animations ────────────────────────────────────────────────── */

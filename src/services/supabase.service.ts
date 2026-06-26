@@ -23,6 +23,7 @@ export class SupabaseService {
         completedLevels: data.completed_levels ?? [],
         highestLevel: data.highest_level ?? 0,
         totalSnaps: data.total_snaps ?? 0,
+        stars: data.stars ?? {},
       };
     } catch (err) {
       // eslint-disable-next-line no-console

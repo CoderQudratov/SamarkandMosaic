@@ -1,0 +1,167 @@
+{
+  "id": "level-7",
+  "board": "board.png",
+  "guide": "guide.png",
+  "pieces": [
+    {
+      "id": "piece-001",
+      "image": "pieces/piece_001.png",
+      "targetX": 0,
+      "targetY": 0,
+      "width": 240,
+      "height": 240
+    },
+    {
+      "id": "piece-002",
+      "image": "pieces/piece_002.png",
+      "targetX": 240,
+      "targetY": 0,
+      "width": 240,
+      "height": 240
+    },
+    {
+      "id": "piece-003",
+      "image": "pieces/piece_003.png",
+      "targetX": 480,
+      "targetY": 0,
+      "width": 240,
+      "height": 240
+    },
+    {
+      "id": "piece-004",
+      "image": "pieces/piece_004.png",
+      "targetX": 720,
+      "targetY": 0,
+      "width": 240,
+      "height": 240
+    },
+    {
+      "id": "piece-005",
+      "image": "pieces/piece_005.png",
+      "targetX": 960,
+      "targetY": 0,
+      "width": 240,
+      "height": 240
+    },
+    {
+      "id": "piece-006",
+      "image": "pieces/piece_006.png",
+      "targetX": 0,
+      "targetY": 240,
+      "width": 240,
+      "height": 240
+    },
+    {
+      "id": "piece-007",
+      "image": "pieces/piece_007.png",
+      "targetX": 240,
+      "targetY": 240,
+      "width": 240,
+      "height": 240
+    },
+    {
+      "id": "piece-008",
+      "image": "pieces/piece_008.png",
+      "targetX": 480,
+      "targetY": 240,
+      "width": 240,
+      "height": 240
+    },
+    {
+      "id": "piece-009",
+      "image": "pieces/piece_009.png",
+      "targetX": 720,
+      "targetY": 240,
+      "width": 240,
+      "height": 240
+    },
+    {
+      "id": "piece-010",
+      "image": "pieces/piece_010.png",
+      "targetX": 960,
+      "targetY": 240,
+      "width": 240,
+      "height": 240
+    },
+    {
+      "id": "piece-011",
+      "image": "pieces/piece_011.png",
+      "targetX": 0,
+      "targetY": 480,
+      "width": 240,
+      "height": 240
+    },
+    {
+      "id": "piece-012",
+      "image": "pieces/piece_012.png",
+      "targetX": 240,
+      "targetY": 480,
+      "width": 240,
+      "height": 240
+    },
+    {
+      "id": "piece-013",
+      "image": "pieces/piece_013.png",
+      "targetX": 480,
+      "targetY": 480,
+      "width": 240,
+      "height": 240
+    },
+    {
+      "id": "piece-014",
+      "image": "pieces/piece_014.png",
+      "targetX": 720,
+      "targetY": 480,
+      "width": 240,
+      "height": 240
+    },
+    {
+      "id": "piece-015",
+      "image": "pieces/piece_015.png",
+      "targetX": 960,
+      "targetY": 480,
+      "width": 240,
+      "height": 240
+    },
+    {
+      "id": "piece-016",
+      "image": "pieces/piece_016.png",
+      "targetX": 0,
+      "targetY": 720,
+      "width": 240,
+      "height": 240
+    },
+    {
+      "id": "piece-017",
+      "image": "pieces/piece_017.png",
+      "targetX": 240,
+      "targetY": 720,
+      "width": 240,
+      "height": 240
+    },
+    {
+      "id": "piece-018",
+      "image": "pieces/piece_018.png",
+      "targetX": 480,
+      "targetY": 720,
+      "width": 240,
+      "height": 240
+    },
+    {
+      "id": "piece-019",
+      "image": "pieces/piece_019.png",
+      "targetX": 720,
+      "targetY": 720,
+      "width": 240,
+      "height": 240
+    },
+    {
+      "id": "piece-020",
+      "image": "pieces/piece_020.png",
+      "targetX": 960,
+      "targetY": 720,
+      "width": 240,
+      "height": 240
+    }
+  ]
+}

@@ -7,6 +7,8 @@ import type {
 } from '@/game/types';
 import type { Rect } from '@/game/utils/geometry';
 import { CONFIG } from '@/constants';
+import { assetCache } from '@/game/loaders/AssetCache';
+import { streamNextLevels } from '@/game/loaders/StreamLoader';
 
 // ── Paths ─────────────────────────────────────────────────────────────────────
 
@@ -62,28 +64,6 @@ function validateLevel(data: unknown): PuzzleLevel {
   return { id: o.id, board: o.board, guide: o.guide, pieces };
 }
 
-// ── Image probing (for natural board size) ─────────────────────────────────────
-
-function probeImageSize(
-  url: string,
-  timeoutMs = 4000,
-): Promise<{ w: number; h: number } | null> {
-  return new Promise((resolve) => {
-    const img = new Image();
-    let settled = false;
-    const done = (result: { w: number; h: number } | null) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      resolve(result);
-    };
-    const timer = setTimeout(() => done(null), timeoutMs);
-    img.onload = () => done({ w: img.naturalWidth, h: img.naturalHeight });
-    img.onerror = () => done(null);
-    img.src = url;
-  });
-}
-
 // Fallback natural size = bounding box of all slots (works with no board art).
 function slotsBoundingBox(pieces: PuzzlePieceDef[]): { w: number; h: number } {
   let w = 0;
@@ -128,15 +108,38 @@ export async function loadLevel(levelId: string): Promise<void> {
     const raw = await res.json();
     const level = validateLevel(raw);
 
-    // Establish the natural coordinate space. Prefer the board image's real
-    // dimensions; fall back to the slots bounding box if art is missing.
-    const probed = await probeImageSize(`${base}/${level.board}`);
-    const natural =
-      probed && probed.w > 0 && probed.h > 0 ? probed : slotsBoundingBox(level.pieces);
+    // Establish the natural coordinate space by DECODING the board image through
+    // the cache (also makes the win-reveal art instant). Board art is best-effort
+    // — gameplay can fall back to the slots bounding box if it is missing.
+    let natural: { w: number; h: number };
+    try {
+      const boardImg = await assetCache.decode(`${base}/${level.board}`, levelId);
+      natural =
+        boardImg.naturalWidth > 0 && boardImg.naturalHeight > 0
+          ? { w: boardImg.naturalWidth, h: boardImg.naturalHeight }
+          : slotsBoundingBox(level.pieces);
+    } catch {
+      natural = slotsBoundingBox(level.pieces);
+    }
 
     if (natural.w <= 0 || natural.h <= 0) {
       throw new Error('could not determine board dimensions');
     }
+
+    // Guide is a ghosted helper layer — non-critical, decode silently.
+    if (level.guide) {
+      assetCache
+        .decode(`${base}/${level.guide}`, levelId)
+        .catch(() => { /* optional layer — handled gracefully by FadingImage */ });
+    }
+
+    // Piece images: decode-and-cache before the board flips to "ready" so the
+    // first paint is instant (no flicker). Failures are non-fatal — PuzzlePiece
+    // renders a gold number fallback when its <img> errors, so placeholder levels
+    // that have no art yet still play correctly instead of showing an error screen.
+    await Promise.allSettled(
+      level.pieces.map((def) => assetCache.decode(`${base}/${def.image}`, levelId)),
+    );
 
     const pieces: Record<string, PuzzlePieceRuntime> = {};
     for (const def of level.pieces) {
@@ -147,6 +150,9 @@ export async function loadLevel(levelId: string): Promise<void> {
     useBoardStore
       .getState()
       .setLevelData(level, natural.w, natural.h, pieces, trayOrder);
+
+    // Active level is resident — silently stream the next two in the background.
+    streamNextLevels(levelId);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'failed to load level';
     // eslint-disable-next-line no-console

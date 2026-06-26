@@ -1,0 +1,110 @@
+{
+    "level": "level1",
+    "board": "board.png",
+    "guide": "guide.png",
+    "outline": "outline.png",
+    "master": "master.png",
+    "preview": "preview.png",
+    "pieces": [
+        {
+            "id": 1,
+            "image": "piece_001.png",
+            "target": {
+                "x": 306.0735,
+                "y": 322.7402
+            },
+            "bbox": {
+                "left": 0,
+                "top": 0,
+                "right": 627,
+                "bottom": 722
+            },
+            "size": {
+                "width": 627,
+                "height": 722
+            },
+            "pivot": {
+                "x": 306.0735,
+                "y": 322.7402
+            },
+            "rotation": 0,
+            "scale": 1,
+            "zIndex": 1
+        },
+        {
+            "id": 2,
+            "image": "piece_002.png",
+            "target": {
+                "x": 931.1704,
+                "y": 322.262
+            },
+            "bbox": {
+                "left": 532,
+                "top": 0,
+                "right": 1254,
+                "bottom": 722
+            },
+            "size": {
+                "width": 722,
+                "height": 722
+            },
+            "pivot": {
+                "x": 399.1704,
+                "y": 322.262
+            },
+            "rotation": 0,
+            "scale": 1,
+            "zIndex": 1
+        },
+        {
+            "id": 3,
+            "image": "piece_003.png",
+            "target": {
+                "x": 305.6868,
+                "y": 947.264
+            },
+            "bbox": {
+                "left": 0,
+                "top": 627,
+                "right": 627,
+                "bottom": 1254
+            },
+            "size": {
+                "width": 627,
+                "height": 627
+            },
+            "pivot": {
+                "x": 305.6868,
+                "y": 320.264
+            },
+            "rotation": 0,
+            "scale": 1,
+            "zIndex": 1
+        },
+        {
+            "id": 4,
+            "image": "piece_004.png",
+            "target": {
+                "x": 930.7029,
+                "y": 946.8885
+            },
+            "bbox": {
+                "left": 532,
+                "top": 627,
+                "right": 1254,
+                "bottom": 1254
+            },
+            "size": {
+                "width": 722,
+                "height": 627
+            },
+            "pivot": {
+                "x": 398.7029,
+                "y": 319.8885
+            },
+            "rotation": 0,
+            "scale": 1,
+            "zIndex": 1
+        }
+    ]
+}

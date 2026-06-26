@@ -1,0 +1,55 @@
+{
+  "id": "level-2",
+  "board": "board.png",
+  "guide": "guide.png",
+  "pieces": [
+    {
+      "id": "piece-001",
+      "image": "pieces/piece_001.png",
+      "targetX": 0,
+      "targetY": 0,
+      "width": 400,
+      "height": 400
+    },
+    {
+      "id": "piece-002",
+      "image": "pieces/piece_002.png",
+      "targetX": 400,
+      "targetY": 0,
+      "width": 400,
+      "height": 400
+    },
+    {
+      "id": "piece-003",
+      "image": "pieces/piece_003.png",
+      "targetX": 800,
+      "targetY": 0,
+      "width": 400,
+      "height": 400
+    },
+    {
+      "id": "piece-004",
+      "image": "pieces/piece_004.png",
+      "targetX": 0,
+      "targetY": 400,
+      "width": 400,
+      "height": 400
+    },
+    {
+      "id": "piece-005",
+      "image": "pieces/piece_005.png",
+      "targetX": 400,
+      "targetY": 400,
+      "width": 400,
+      "height": 400
+    },
+    {
+      "id": "piece-006",
+      "image": "pieces/piece_006.png",
+      "targetX": 800,
+      "targetY": 400,
+      "width": 400,
+      "height": 400
+    }
+  ]
+}
