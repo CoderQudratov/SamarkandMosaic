@@ -32,6 +32,11 @@ export interface LevelMeta {
    * Used by future tutorial/hint systems — not rendered yet.
    */
   difficulty: 'easy' | 'medium' | 'hard' | 'expert' | 'master';
+  /**
+   * When false, assets are not ready yet. The level select shows the card as
+   * permanently locked and loading is blocked. Defaults to true when absent.
+   */
+  available?: boolean;
 }
 
 export const LEVEL_REGISTRY: readonly LevelMeta[] = [
@@ -66,19 +71,19 @@ export const LEVEL_REGISTRY: readonly LevelMeta[] = [
     grid: [4, 4], difficulty: 'medium',
   },
   {
-    id: 7,  dirId: 'level-7',  pieceCount: 20, baseReward: 100,
+    id: 7,  dirId: 'level-7',  pieceCount: 30, baseReward: 100,
     name: 'Registan Square',   theme: 'Heart of Samarkand',
-    grid: [5, 4], difficulty: 'hard',
+    grid: [6, 5], difficulty: 'hard',
   },
   {
-    id: 8,  dirId: 'level-8',  pieceCount: 24, baseReward: 120,
+    id: 8,  dirId: 'level-8',  pieceCount: 30, baseReward: 120,
     name: 'Tillya-Kori',       theme: 'The Gilded Madrasah',
-    grid: [6, 4], difficulty: 'hard',
+    grid: [6, 5], difficulty: 'hard',
   },
   {
-    id: 9,  dirId: 'level-9',  pieceCount: 28, baseReward: 140,
+    id: 9,  dirId: 'level-9',  pieceCount: 30, baseReward: 140,
     name: 'Khoja Ahrar',       theme: 'The Sacred Complex',
-    grid: [7, 4], difficulty: 'expert',
+    grid: [6, 5], difficulty: 'expert',
   },
   {
     id: 10, dirId: 'level-10', pieceCount: 32, baseReward: 160,
@@ -101,4 +106,13 @@ export const ALL_LEVEL_IDS: readonly number[] =
 /** Piece count for a given level id. Returns 0 for unknown ids. */
 export function getPieceCount(levelId: number): number {
   return getLevelMeta(levelId)?.pieceCount ?? 0;
+}
+
+/**
+ * Returns false when a level's assets are not ready (available === false).
+ * Levels without an explicit `available` field are treated as available.
+ */
+export function isLevelAvailable(levelId: number): boolean {
+  const meta = getLevelMeta(levelId);
+  return meta ? (meta.available !== false) : false;
 }

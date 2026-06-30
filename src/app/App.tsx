@@ -19,17 +19,24 @@ import { MainMenuScreen }  from '@/screens/MainMenuScreen';
 import { LevelSelectScreen } from '@/screens/LevelSelectScreen';
 
 // Game phase
-import { PuzzleBoard }      from '@/game/board/PuzzleBoard';
 import { SwapPuzzleBoard }  from '@/game/board/SwapPuzzleBoard';
 import { WinScene }         from '@/components/scenes/WinScene';
 import { GameOverScene }    from '@/components/scenes/GameOverScene';
 
 export function App() {
+  // Dev-mode: expose shortcut on window so browser console can navigate directly.
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    (window as unknown as Record<string, unknown>).__goGame = (levelId = 1) => {
+      useLevelStore.getState().setSelectedLevelId(levelId);
+      useUIStore.getState().setScene('game');
+    };
+  }, []);
+
   const scene     = useUIStore((s) => s.scene);
   const isLoading = useUIStore((s) => s.isLoading);
   const shopOpen  = useUIStore((s) => s.shopOpen);
   const setShopOpen = useUIStore((s) => s.setShopOpen);
-  const selectedLevelId = useLevelStore((s) => s.selectedLevelId);
 
   // Preload all Howl instances once on mount (before any user interaction)
   useEffect(() => { audioManager.init(); }, []);
@@ -58,7 +65,7 @@ export function App() {
 
         {/* ── Game phase — wrapped in error boundary ──────────────────────── */}
         <GameErrorBoundary>
-          {scene === 'game'     && (selectedLevelId === 1 ? <SwapPuzzleBoard /> : <PuzzleBoard />)}
+          {scene === 'game'     && <SwapPuzzleBoard />}
           {scene === 'win'      && <WinScene />}
           {scene === 'gameover' && <GameOverScene />}
         </GameErrorBoundary>

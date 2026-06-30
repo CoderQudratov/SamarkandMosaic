@@ -1,0 +1,497 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║   SAMARKAND MOSAIC — TECHNICAL AUDIT REPORT                                ║
+║   Senior Game Forensic Auditor                                             ║
+║   Audit Date: 2026-06-27                                                   ║
+║   Scope: Full codebase — Level, Asset, Board, Swap, Store, Hint, Cache,   ║
+║          UI, Economy, Bug Detection                                         ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+────────────────────────────────────────────────────────────────────────────────
+SECTION 1 — ARCHITECTURE SUMMARY
+────────────────────────────────────────────────────────────────────────────────
+
+Stack confirmed: React 18 + TypeScript + Zustand + GSAP 3 + Howler.js + Vite.
+PixiJS is imported but used only in the OLD (legacy) system.
+
+The codebase contains TWO PARALLEL GAME SYSTEMS:
+
+  OLD SYSTEM (legacy, partially dead):
+    src/game/loaders/LevelLoader.ts   — loads pieces[] format via AssetCache
+    src/game/loaders/BootLoader.ts    — preloads level-1 via OLD loader
+    src/game/levels/registry.ts       — 10 levels, pieceCount + grid fields
+    src/game/board/PuzzleBoard.tsx    — PixiJS drag-and-snap board
+    src/store/gameStore.ts            — OLD game state (hearts, snaps, etc.)
+    src/store/boardStore.ts           — OLD board geometry state
+
+  NEW SYSTEM (active, what the player sees):
+    src/game/loaders/SwapLevelLoader.ts — loads tiles[] format + economy
+    src/game/board/SwapPuzzleBoard.tsx  — React+GSAP tap-to-swap board (1398 LOC)
+    src/game/systems/SwapSystem.ts      — shuffle, swap logic, save/restore
+    src/store/swapStore.ts              — swap board state
+
+STORE COUNT: 7 active stores.
+  CLAUDE.md documents 5 (playerStore, gameStore, audioStore, uiStore, levelStore).
+  Undocumented: swapStore, boardStore. Architecture documentation is stale.
+
+ARCHITECTURE RULE VIOLATIONS (from CLAUDE.md):
+  [VIOLATION 1] "Do NOT call gsap from React components."
+    SwapPuzzleBoard.tsx calls gsap extensively throughout its render lifecycle.
+    Lines: 572-574, 626-629, 637-645, 736-819, 896-899, 924-929, 983-984.
+    This is the entire swap system — the rule cannot be enforced here without
+    a full rewrite. The rule was written for PixiJS days and not updated.
+
+  [VIOLATION 2] "No local component state for game logic."
+    SwapPuzzleBoard.tsx uses useState for: levelData, layout, phase, countdown,
+    isPaused, showGameOver, showParticles, showChest, showTutorial, isComplete,
+    hintDisplay, idleHintSlots — 15+ pieces of local state.
+    Rationale: these are UI display states, not game logic states. Borderline.
+
+  [NON-VIOLATION, CONFIRMED] Colors: all from COLORS const. ✓
+  [NON-VIOLATION, CONFIRMED] Timings: all from TIMINGS const. ✓
+  [NON-VIOLATION, CONFIRMED] AudioManager is only Howler caller. ✓
+
+────────────────────────────────────────────────────────────────────────────────
+SECTION 2 — LEVEL SYSTEM REPORT
+────────────────────────────────────────────────────────────────────────────────
+
+Level discovery: SwapLevelLoader fetches /assets/levels/level-{id}/manifest.json
+and then /assets/levels/level-{id}/level.json on every game start.
+
+Vite plugin (src-level-assets) intercepts /assets/levels/* in dev and routes
+to src/assets/levels/. In production build, copies src/ → dist/. ✓ Correct.
+
+LEVELS BUILT BY PIPELINE (src/assets/levels/):
+  level-1:  1254×1254, 2×14 grid — LEGACY FORMAT (manual creation, pre-pipeline)
+  level-2:  1200×1200, 3×3  grid — pipeline-built ✓
+  level-3:  1200×1200, 3×4  grid — pipeline-built ✓
+  level-4:  1200×1200, 4×4  grid — pipeline-built ✓
+  level-5:  1200×1200, 4×4  grid — pipeline-built ✓
+  level-6:  1200×1200, 4×4  grid — pipeline-built ✓
+  level-7:  EXISTS in public/ only — NOT in src/assets/levels/
+  level-8:  1200×1200, 4×5  grid — pipeline-built ✓
+  level-9:  EXISTS in public/ only — NOT in src/assets/levels/
+  level-10: 1200×1200, 5×5  grid — pipeline-built ✓
+  level-15: 1200×1200, 5×6  grid — pipeline-built ✓
+  level-20: 1200×1200, 6×6  grid — pipeline-built ✓
+
+GAPS: Levels 7 and 9 are in public/assets/levels/ (only level.json, no tiles, no
+      manifest, no board.png). The Vite plugin will NOT find them in src/, so it
+      falls through to public/ — but public/level-7/ and public/level-9/ only
+      contain a single level.json with no tiles/ directory and no manifest.json.
+      RESULT: Levels 7 and 9 WILL CRASH at load time with "[LevelLoader] level.json
+      missing tiles array" or a network 404 on tile images.
+
+LOCK STRATEGY MISMATCH — CRITICAL BUG:
+  build_levels.py defines lock strategy per level:
+    L2-5  → 'rows'    (top + bottom rows locked)
+    L6-10 → 'corners' (4 corner tiles locked)
+    L15+  → 'none'
+
+  SwapLevelLoader.detectLockedSlots() defines it by levelNum:
+    levelNum <= 4  → rows  (top + bottom rows)
+    levelNum <= 8  → corners
+    levelNum >= 9  → none
+
+  CONFLICT ON LEVEL 5:
+    build_levels.py says L5 = 'rows' lock (top+bottom rows locked)
+    level-5/level.json marks top+bottom row tiles as locked: true
+    detectLockedSlots(5, 4, 4) returns: CORNERS (0, 3, 12, 15)
+
+  The locked field in level.json is COMPLETELY IGNORED by SwapLevelLoader.
+  Line 199 in SwapLevelLoader.ts:
+    const lockedSlots = detectLockedSlots(levelNum, rows, cols);
+  This overwrites whatever the JSON says. Level 5 will present corner pieces as
+  locked (allowing top/bottom row pieces to be swapped — breaking puzzle design).
+
+────────────────────────────────────────────────────────────────────────────────
+SECTION 3 — ASSET PIPELINE REPORT
+────────────────────────────────────────────────────────────────────────────────
+
+SCRIPTS:
+  scripts/generate_ornaments.py — generates master.svg + master.png per level
+  scripts/build_levels.py       — slices tiles, writes manifest/level/placements
+  scripts/qa_levels.py          — validates all 4 audit tiers
+
+CONFIRMED WORKING (last QA run: ALL PASS for levels 2-20):
+  ✓ master.png is 1200×1200 for all pipeline levels
+  ✓ Tile count matches rows×cols
+  ✓ Pixel-perfect reconstruction (delta=0 for all levels)
+  ✓ No blank/transparent tiles (structural_frame corner anchors)
+  ✓ Economy blocks present with correct hint costs
+  ✓ No gap/overlap in tile slicing
+
+KNOWN ISSUES:
+  [WARN] level-1 is excluded from QA (LEGACY_LEVELS = {1}).
+    level-1 has 28 tiles in src/ (2×14 grid?), 1254×1254 master.
+    This level uses a different schema and the qa script skips it entirely.
+    It is NOT validated — its tiles/ contents are unknown quality.
+
+  [WARN] public/assets/levels/ is stale / partially redundant:
+    - public/level-1/ has old pieces/ format AND new tiles/ format coexisting
+    - public/level-2/ through level-9/ have level.json but no tiles/
+    - public/level-10/ only has level.json
+    The Vite plugin's fallthrough to public/ means stale public/ files can
+    serve when src/ doesn't have the file. This creates hidden state.
+
+  [WARN] debug_reconstruction.png and preview.png are committed per-level.
+    These are build artifacts. They should be gitignored.
+
+ASSET CONTRACT COMPLIANCE vs CLAUDE.md spec:
+  CLAUDE.md requires per level: board.png, guide.png, outline.png, pieces/*.png
+  ACTUAL per level (new system): master.png, manifest.json, level.json,
+    placements.json, tiles/tile_NNN.png, board.png, guide.png
+  outline.png: MISSING in all levels (spec says required, not present anywhere)
+  board.png: present in level-1 only from the old system
+  The new swap system doesn't use board.png or guide.png in the same way.
+  The CLAUDE.md asset contract is outdated relative to the swap system.
+
+────────────────────────────────────────────────────────────────────────────────
+SECTION 4 — PUZZLE LOGIC REPORT
+────────────────────────────────────────────────────────────────────────────────
+
+SHUFFLE: createShuffledGrid() uses Fisher-Yates on movable slots only. ✓
+  Locks are respected during shuffle. ✓
+  Anti-trivial guard: recursion if solved. ✓
+  [WARN] Infinite loop risk: if movable tiles ≤ 1, isGridSolved returns true
+    on every call → infinite recursion → stack overflow. No guard.
+
+SWAP DETECTION: isGoodSwap() returns true if either tile ends up within
+  Manhattan distance ≤ 1 of its correct slot after the swap.
+  [NOTE] "Within 1" means already-adjacent tiles are counted as good even
+    if they don't actually reach their target. This is a design choice that
+    may be intentional (ASMR feel — low penalty) but means the penalizer
+    (bad swap) is rarely triggered for most mid-game positions.
+
+SOLVE DETECTION: grid.every((t, i) => t === i + 1) — correct. ✓
+
+BEST MOVE HINT (findBestMove):
+  O(n²) scan — acceptable for n ≤ 36 (6×6 max). ✓
+  Prefers mutual-improvement swaps over single-tile swaps. ✓
+  Final fallback: returns first two movable slots unconditionally (even if no
+    improvement available). This means the hint can suggest a bad swap if no
+    good moves exist — which then costs the player an attempt.
+
+isTileImproved checks distance AFTER swap, not delta-distance.
+  Edge case: tile already at distance 1 from correct slot swaps to distance 1
+  on the other side — counts as "improved" but player makes no net progress.
+  Penalty is skipped even though puzzle state hasn't improved meaningfully.
+
+SHUFFLE RECOVERY (loadSwapState):
+  Validates grid.length === expectedLength and attemptsLeft is a number. ✓
+  Does NOT validate that grid contains valid tile IDs (no range check on values).
+  A corrupted save with grid=[0,0,0...] would pass validation and break render.
+
+────────────────────────────────────────────────────────────────────────────────
+SECTION 5 — ECONOMY REPORT
+────────────────────────────────────────────────────────────────────────────────
+
+ECONOMY DATA CHAIN:
+  build_levels.py writes manifest.json → economy block
+  SwapLevelLoader reads manifest.json → LoadedLevel.economy
+  SwapPuzzleBoard reads LoadedLevel ... and IGNORES economy.maxAttempts
+
+CRITICAL BUG — maxAttempts NEVER APPLIED FROM MANIFEST:
+
+  SwapPuzzleBoard.tsx lines 403, 607, 1012:
+    const maxAtt = SWAP_MAX_ATTEMPTS[selectedLevelId] ?? 12;
+
+  SWAP_MAX_ATTEMPTS in SwapSystem.ts:
+    export const SWAP_MAX_ATTEMPTS: Record<number, number> = { 1: 12 };
+
+  Only level 1 is in this table. ALL OTHER LEVELS get maxAttempts=12.
+  The manifest.json economy.maxAttempts values (20 for L2, 26 for L3,
+  34 for L4, 42 for L5, 72 for L10, 132 for L20) are LOADED but DISCARDED.
+
+  Impact: Level 20 (6×6=36 tiles, 32 movable) gets 12 attempts instead of 132.
+  At E[min_swaps] ≈ 32 × ln(32) / 2 ≈ 56 swaps, level 20 is UNSOLVABLE.
+
+  The fix is one line: replace SWAP_MAX_ATTEMPTS lookup with data.economy.maxAttempts.
+
+COIN ECONOMY:
+  perSnap = 5 coins per correct placement
+  completion base = 50 coins (from EconomySystem.calcLevelReward)
+  manifest.coinReward is loaded into economy but check needed in EconomySystem
+  [NOT VERIFIED] Whether EconomySystem actually uses economy.coinReward from
+    the manifest or uses CONFIG.coins.completion globally.
+
+HINT PURCHASE UI: hardcoded pack prices [75, 300, 800, 1800] coins.
+  These are independent of manifest.economy.hintCosts ([25, 40, 60, 90]).
+  The hintCosts in manifest describe "per-use cost when buying with coins during
+  gameplay" — but that code path (spendHint) is never called from SwapPuzzleBoard.
+  Instead, the board calls usePlayerStore.getState().useHint() which only deducts
+  from inventory. Coin-based hints would require no inventory.
+  Result: hintCosts in manifest are defined but never consumed.
+
+STARS:
+  3 stars: no mistakes + no hint used
+  2 stars: mistakes but no hint
+  1 star:  hint used
+  This is implemented correctly via mistakesRef and hintUsed from swapStore. ✓
+
+REWARD CHEST:
+  30% chance after win. Min=30, max=100 coins. ✓
+  ChestModal shows then routes to win scene. ✓
+
+────────────────────────────────────────────────────────────────────────────────
+SECTION 6 — DETECTED BUGS
+────────────────────────────────────────────────────────────────────────────────
+
+[BUG-01] CRITICAL — Economy maxAttempts never applied to board
+  File: src/game/board/SwapPuzzleBoard.tsx:403, 607, 1012
+  File: src/game/systems/SwapSystem.ts:4
+  Description: SWAP_MAX_ATTEMPTS only has level 1. All other levels get 12.
+    Manifest economy.maxAttempts is loaded but discarded.
+    Level 20 is unsolvable at 12 attempts (needs ~56 minimum).
+  Fix: Replace:
+    const maxAtt = SWAP_MAX_ATTEMPTS[selectedLevelId] ?? 12;
+  With:
+    const maxAtt = data.economy.maxAttempts;
+
+[BUG-02] CRITICAL — Lock strategy mismatch for level 5
+  File: src/game/loaders/SwapLevelLoader.ts:66-79
+  File: scripts/build_levels.py:59-71
+  Description: L5 build_levels uses 'rows' lock (top+bottom rows).
+    detectLockedSlots(5, ...) returns corners (since levelNum <= 8).
+    level.json for L5 has locked:true on top/bottom tiles.
+    But the locked field is ignored — loader always calls detectLockedSlots().
+    Result: L5 shows wrong tiles as locked. Puzzle design is corrupted.
+  Fix: Read locked slots from level.json tiles[].locked instead of
+    detectLockedSlots(), or fix the boundary mismatch (L5 → rows).
+
+[BUG-03] HIGH — Levels 7 and 9 will crash at load time
+  File: public/assets/levels/level-7/, public/assets/levels/level-9/
+  Description: Only level.json exists in these directories (no tiles/, no
+    manifest.json, no board.png). SwapLevelLoader will 404 on tile images and
+    throw "missing tiles array" if the JSON schema doesn't match.
+  Fix: Either build L7 and L9 via the pipeline, or remove them from the
+    level registry / lock them on the level select screen.
+
+[BUG-04] HIGH — Infinite recursion in createShuffledGrid
+  File: src/game/systems/SwapSystem.ts:17-26
+  Description: If movable tile count is 0 or 1, isGridSolved returns true
+    immediately and the function recurses forever → stack overflow.
+  Fix: Guard before recursion:
+    if (movableSlots.length <= 1) return grid; // can't shuffle
+
+[BUG-05] MEDIUM — level.json locked field completely ignored
+  File: src/game/loaders/SwapLevelLoader.ts:199
+  Description: All tile metadata including locked:true/false is loaded from
+    level.json via validateTiles(), but the locked property is not read.
+    detectLockedSlots() is called instead, ignoring the JSON data.
+    This makes build_levels.py's locked flag writing pointless.
+  Fix: In SwapLevelLoader.loadLevel(), derive lockedSlots from tiles:
+    const lockedSlots = new Set(tiles
+      .filter(t => t.locked)
+      .map(t => t.correctRow * cols + t.correctCol));
+    And remove the detectLockedSlots() call (or use it only as fallback).
+
+[BUG-06] MEDIUM — handleReplay uses wrong fallback row count
+  File: src/game/board/SwapPuzzleBoard.tsx:1010
+  Code: const rows = data?.manifest.rows ?? 7;
+  Description: No level in the game has 7 rows. This fallback would create
+    a wildly wrong grid. If levelData is null on replay (shouldn't happen
+    but defensive), the board initializes with 4×7=28 slots for all levels.
+  Fix: Use rows ?? 4 or assert data is non-null before this point.
+
+[BUG-07] MEDIUM — findBestMove suggests bad swap as final fallback
+  File: src/game/systems/SwapSystem.ts:82-83
+  Code: return [movable[0], movable[1]];
+  Description: When no good move exists, hint returns any two movable slots.
+    If the player accepts this hint, it executes a bad swap, costs an attempt,
+    and the hint lamp shows it as a "smart" suggestion. Misleading and harmful.
+  Fix: Return null when no improving swap exists, and display a "no good moves"
+    message instead of suggesting a guaranteed bad swap.
+
+[BUG-08] LOW — loadSwapState does not validate tile ID range
+  File: src/game/systems/SwapSystem.ts:98-103
+  Description: Saved grid values are not checked against [1..total].
+    A corrupted localStorage entry with out-of-range IDs passes validation
+    and will produce blank tiles (tileImageMap miss) silently.
+  Fix: Add: if (raw.grid.some(v => v < 1 || v > expectedLength)) return null;
+
+[BUG-09] LOW — audioStore uses localStorage directly, not storageService
+  File: src/store/audioStore.ts:31-38
+  Description: All other stores use storageService.get/set for persistence.
+    audioStore calls localStorage.getItem/setItem directly. If storageService
+    ever changes its storage backend or prefix, audio prefs won't migrate.
+  Fix: Replace localStorage calls with storageService calls for consistency.
+
+[BUG-10] LOW — CONFIG.levels only defines levels 1-10, game has levels 1-20
+  File: src/constants/config.ts (CONFIG.levels object)
+  Description: CONFIG.levels has pieces counts for L1-10 only. This is the
+    OLD system's config. Levels 15 and 20 are missing. If any new code
+    reads CONFIG.levels[15] it gets undefined silently.
+  Fix: Extend to all 20 levels or mark as explicitly OLD-system-only.
+
+────────────────────────────────────────────────────────────────────────────────
+SECTION 7 — CRITICAL RED FLAGS
+────────────────────────────────────────────────────────────────────────────────
+
+[RED-01] ECONOMY IS BROKEN FOR MOST LEVELS
+  Every level except level 1 gets 12 attempts regardless of difficulty.
+  Level 10 (5×5, E[min_swaps]≈42) has 12 attempts → impossible to win cleanly.
+  Level 20 (6×6, E[min_swaps]≈56) has 12 attempts → unsolvable.
+  This is the single highest-priority bug. Players who reach level 3+ will
+  be force-failing without understanding why.
+
+[RED-02] DUAL SYSTEM CREATES MAINTENANCE DEBT AND CONFUSION
+  Two loaders, two board components, two game stores, two swap budgets.
+  The OLD system (LevelLoader, PuzzleBoard, gameStore) appears unmaintained.
+  BootLoader still preloads level-1 via the OLD loader — if OLD loader
+  triggers on every app start it wastes network requests.
+  RECOMMEND: Audit whether OLD system is still reachable from any navigation
+  path. If not, remove it. Dead code + stale stores = audit noise + future bugs.
+
+[RED-03] LEVELS 7 AND 9 ARE BROKEN SHELLS
+  They exist in public/ with no tiles and no manifest. Any player who reaches
+  L7 or L9 gets a crash. There is no level-select guard preventing access.
+
+[RED-04] LEVEL-1 IS NOT QA'D
+  The only level reachable by new players is explicitly excluded from the
+  automated QA audit (LEGACY_LEVELS = {1}). Level 1's 28 tiles with
+  1254×1254 master are untested by the pipeline.
+
+[RED-05] LOCK MISMATCH CORRUPTS PUZZLE DESIGN FOR LEVEL 5
+  A player on L5 will see corner tiles "locked" when the ornament was designed
+  for top/bottom row anchoring. This makes the puzzle visually incoherent.
+
+────────────────────────────────────────────────────────────────────────────────
+SECTION 8 — FIX RECOMMENDATIONS (Priority order)
+────────────────────────────────────────────────────────────────────────────────
+
+P1 — Fix maxAttempts for all levels (BUG-01)
+  src/game/board/SwapPuzzleBoard.tsx lines 403, 607, 1012:
+    Before: const maxAtt = SWAP_MAX_ATTEMPTS[selectedLevelId] ?? 12;
+    After:  const maxAtt = data.economy.maxAttempts;
+  Impact: Makes levels 2-20 playable. Zero risk — data.economy is guaranteed
+  by SwapLevelLoader (has DEFAULT_ECONOMY fallback).
+
+P2 — Fix locked slots to read from level.json (BUG-02, BUG-05)
+  src/game/loaders/SwapLevelLoader.ts line 199:
+    Before: const lockedSlots = detectLockedSlots(levelNum, rows, cols);
+    After:  const lockedSlots = new Set(
+              tiles
+                .filter(t => (t as Record<string,unknown>).locked === true)
+                .map(t => t.correctRow * cols + t.correctCol)
+            );
+  Also add locked?: boolean to LevelTile interface and validateTiles().
+  Impact: Fixes L5 puzzle design. Removes the hard-coded boundary tables.
+
+P3 — Block or build levels 7 and 9 (BUG-03)
+  Option A: Run pipeline to generate ornaments + assets for L7 and L9.
+  Option B: Remove L7 and L9 from level registry until assets are ready.
+  Option C: Disable their level-select buttons if no tiles found.
+
+P4 — Fix infinite recursion in createShuffledGrid (BUG-04)
+  src/game/systems/SwapSystem.ts after line 20:
+    if (movableSlots.length <= 1) return grid;
+
+P5 — Fix findBestMove fallback (BUG-07)
+  src/game/systems/SwapSystem.ts lines 82-83:
+    Before: return [movable[0], movable[1]];
+    After:  return null;
+  And in SwapPuzzleBoard.tsx handleHint(): treat null from findBestMove as
+  "puzzle is in optimal state — no hint available right now."
+
+P6 — Remove or quarantine OLD system dead code
+  Files to audit for reachability:
+    src/game/board/PuzzleBoard.tsx
+    src/game/loaders/LevelLoader.ts
+    src/game/loaders/BootLoader.ts
+    src/game/systems/DragSystem.ts
+    src/game/systems/SnapSystem.ts
+    src/store/gameStore.ts
+    src/store/boardStore.ts
+  If unreachable from any active navigation path: delete them.
+  If reachable: document when and add clear in-file deprecation comment.
+
+P7 — Add save state validation (BUG-08)
+  One line after the null check in loadSwapState.
+
+P8 — Align audioStore with storageService (BUG-09)
+  Low risk, do alongside any future audio work.
+
+P9 — Fix handleReplay row fallback (BUG-06)
+  Change: ?? 7  →  ?? 4
+
+────────────────────────────────────────────────────────────────────────────────
+SECTION 9 — PRODUCTION READINESS SCORE
+────────────────────────────────────────────────────────────────────────────────
+
+┌─────────────────────────────────────┬────────┬───────────────────────────────┐
+│ Dimension                           │ Score  │ Reason                        │
+├─────────────────────────────────────┼────────┼───────────────────────────────┤
+│ Core swap mechanics                 │ 80/100 │ Works for L1, L2, L3          │
+│ Level loading                       │ 55/100 │ L7, L9 crash; L5 lock wrong   │
+│ Economy / attempts balance          │  5/100 │ maxAttempts=12 for ALL levels  │
+│ Asset pipeline (scripts)            │ 90/100 │ Pipeline correct, gaps in L7/9 │
+│ Rendering / GSAP animations         │ 85/100 │ Smooth, well-structured        │
+│ Audio system                        │ 80/100 │ Works, minor storage mismatch  │
+│ Hint system                         │ 65/100 │ Bad fallback, unused hintCosts │
+│ Architecture cleanliness            │ 45/100 │ Dual systems, 2 extra stores   │
+│ Save / restore                      │ 75/100 │ Works, mild validation gap     │
+│ QA coverage                         │ 60/100 │ Scripts good, L1 excluded      │
+├─────────────────────────────────────┼────────┼───────────────────────────────┤
+│ OVERALL                             │ 48/100 │ NOT PRODUCTION READY           │
+└─────────────────────────────────────┴────────┴───────────────────────────────┘
+
+VERDICT: DO NOT SHIP.
+  The economy bug alone (BUG-01) makes levels 3-20 effectively unwinnable under
+  normal play. A player at level 10 gets 12 attempts for a puzzle requiring ~42
+  minimum swaps. This guarantees failure and churn. Fix P1 through P5 before
+  any player-facing deployment.
+
+────────────────────────────────────────────────────────────────────────────────
+SECTION 10 — NEXT STEPS
+────────────────────────────────────────────────────────────────────────────────
+
+IMMEDIATE (before any testing):
+  1. Apply P1 (maxAttempts from economy) — 3 lines changed, zero risk.
+  2. Apply P2 (locked slots from level.json) — removes hardcoded logic.
+  3. Apply P4 (createShuffledGrid guard) — prevents stack overflow crash.
+  4. Remove or hide L7 and L9 from level select (P3 option B).
+  5. Apply P5 (findBestMove null fallback) — stops bad hint suggestions.
+
+BEFORE LAUNCH:
+  6. Run full qa_levels.py to confirm ALL levels pass (add L1 to the audit).
+  7. Run the game on a real device for L1 → L6 consecutively. Verify:
+       - Correct tiles are locked on each level
+       - Attempt counts match design (L2=20, L3=26, L4=34, etc.)
+       - Win is achievable within the attempt budget
+  8. Audit OLD system reachability and delete unreachable code.
+  9. Extend CONFIG.levels to cover L11-L20 or remove the table.
+  10. Add L7 and L9 ornaments + pipeline build when ready.
+
+HOUSEKEEPING:
+  11. Gitignore debug_reconstruction.png and preview.png (build artifacts).
+  12. Update CLAUDE.md store count from 5 to 7 (swapStore + boardStore).
+  13. Update CLAUDE.md asset contract to reflect swap puzzle tile format.
+  14. Align audioStore to use storageService.
+
+────────────────────────────────────────────────────────────────────────────────
+END OF REPORT
+────────────────────────────────────────────────────────────────────────────────
+Files audited:
+  src/game/board/SwapPuzzleBoard.tsx (1398 LOC)
+  src/game/systems/SwapSystem.ts
+  src/game/loaders/SwapLevelLoader.ts
+  src/game/loaders/LevelLoader.ts
+  src/game/loaders/BootLoader.ts
+  src/game/levels/registry.ts
+  src/store/swapStore.ts
+  src/store/playerStore.ts
+  src/store/levelStore.ts
+  src/store/uiStore.ts
+  src/store/audioStore.ts
+  src/store/gameStore.ts (metadata)
+  src/store/boardStore.ts (metadata)
+  src/constants/colors.ts
+  src/constants/timings.ts
+  src/constants/config.ts
+  vite.config.ts
+  scripts/generate_ornaments.py
+  scripts/build_levels.py
+  scripts/qa_levels.py
+  src/assets/levels/level-{1-6,8,10,15,20}/ (asset tree + manifest + level.json)
+  public/assets/levels/ (stale asset tree)
+  CLAUDE.md (architecture contract)

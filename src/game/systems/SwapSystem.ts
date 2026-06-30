@@ -14,16 +14,24 @@ function fisherYates<T>(arr: T[]): T[] {
   return a;
 }
 
-export function createShuffledGrid(cols: number, total: number): number[] {
+export function createShuffledGrid(lockedSlots: Set<number>, total: number): number[] {
   const grid = Array.from({ length: total }, (_, i) => i + 1);
-  const movableStart = cols;
-  const movableEnd = total - cols;
-  const movableSlots = Array.from({ length: movableEnd - movableStart }, (_, i) => i + movableStart);
-  const shuffledTiles = fisherYates(movableSlots.map(i => grid[i]));
+  const movableSlots = Array.from({ length: total }, (_, i) => i).filter((i) => !lockedSlots.has(i));
+  // With ≤1 movable tile there is only one possible arrangement — return it as-is.
+  // Recursing to escape the solved-check would loop forever.
+  if (movableSlots.length <= 1) return grid;
+  const shuffledTiles = fisherYates(movableSlots.map((i) => grid[i]));
   for (let i = 0; i < movableSlots.length; i++) {
     grid[movableSlots[i]] = shuffledTiles[i];
   }
-  if (isGridSolved(grid)) return createShuffledGrid(cols, total);
+  if (isGridSolved(grid)) return createShuffledGrid(lockedSlots, total);
+
+  const nullSlots = grid.map((v, i) => (v == null || typeof v !== 'number') ? i : -1).filter(i => i >= 0);
+  if (nullSlots.length > 0) {
+    throw new Error(`[BOARD AUDIT] INVALID BOARD: NULL/INVALID SLOT at indices [${nullSlots.join(', ')}]. grid=${JSON.stringify(grid)}`);
+  }
+  console.log('[BOARD AUDIT]', { totalSlots: total, filledSlots: grid.filter(Boolean).length, nullSlots: nullSlots.length, grid });
+
   return grid;
 }
 
@@ -56,10 +64,11 @@ export function findBestMove(
   grid: number[],
   cols: number,
   total: number,
+  lockedSlots?: Set<number>,
 ): [number, number] | null {
   const movable: number[] = [];
   for (let i = 0; i < total; i++) {
-    const locked = i < cols || i >= total - cols;
+    const locked = lockedSlots ? lockedSlots.has(i) : (i < cols || i >= total - cols);
     if (!locked && grid[i] !== i + 1) movable.push(i);
   }
   if (movable.length < 2) return null;
@@ -81,7 +90,8 @@ export function findBestMove(
       }
     }
   }
-  return [movable[0], movable[1]];
+  // No swap improves any tile's position — caller must handle null gracefully.
+  return null;
 }
 
 // ── Save / Restore ───────────────────────────────────────────────────────────
@@ -100,6 +110,12 @@ export function loadSwapState(levelNum: number, expectedLength: number): SwapSav
   const raw = storageService.get<SwapSaveState>(`swap_l${levelNum}`);
   if (!raw || !Array.isArray(raw.grid) || raw.grid.length !== expectedLength) return null;
   if (typeof raw.attemptsLeft !== 'number') return null;
+  // Reject any save where a slot is null, not a number, or out of the valid tileId range.
+  if (raw.grid.some(v => v == null || typeof v !== 'number' || v < 1 || v > expectedLength)) {
+    console.warn('[BOARD AUDIT] Discarding corrupted save: invalid slot values in grid', raw.grid);
+    storageService.remove(`swap_l${levelNum}`);
+    return null;
+  }
   return raw;
 }
 
@@ -117,68 +133,4 @@ export function isTutorialDone(): boolean {
 
 export function markTutorialDone(): void {
   try { localStorage.setItem(TUTORIAL_KEY, 'true'); } catch { /* noop */ }
-}
-
-// ── Level data loading ───────────────────────────────────────────────────────
-
-export interface SwapTileDef {
-  id: number;
-  image: string;
-  correctRow: number;
-  correctCol: number;
-}
-
-export interface SwapLevelData {
-  id: string;
-  rows: number;
-  cols: number;
-  tileSize?: number;
-  imageWidth?: number;
-  imageHeight?: number;
-  board: string;
-  guide: string;
-  tiles: SwapTileDef[];
-}
-
-export async function fetchSwapLevelData(levelNum: number): Promise<SwapLevelData> {
-  const base = `/assets/levels/level-${levelNum}`;
-  const res = await fetch(`${base}/level.json`);
-  if (!res.ok) throw new Error(`level.json not found: HTTP ${res.status}`);
-  const raw = await res.json() as Record<string, unknown>;
-
-  if (typeof raw.rows !== 'number' || raw.rows <= 0) {
-    throw new Error(
-      `level.json missing "rows". Ensure public/assets/levels/level-${levelNum}/level.json ` +
-      `uses the tile-grid format (rows, cols, tiles[]).`
-    );
-  }
-  if (typeof raw.cols !== 'number' || raw.cols <= 0) {
-    throw new Error(`level.json missing "cols"`);
-  }
-  if (!Array.isArray(raw.tiles) || raw.tiles.length === 0) {
-    throw new Error(`level.json missing "tiles" array`);
-  }
-
-  const rows = raw.rows as number;
-  const cols = raw.cols as number;
-  const expectedCount = rows * cols;
-
-  if (raw.tiles.length !== expectedCount) {
-    throw new Error(
-      `tile count mismatch: expected ${expectedCount} (${rows}×${cols}), got ${raw.tiles.length}`
-    );
-  }
-
-  const ids = new Set<number>();
-  for (let i = 0; i < raw.tiles.length; i++) {
-    const t = raw.tiles[i] as Record<string, unknown>;
-    if (typeof t.id !== 'number') throw new Error(`tiles[${i}].id must be a number`);
-    if (typeof t.image !== 'string' || !t.image) throw new Error(`tiles[${i}].image missing`);
-    if (typeof t.correctRow !== 'number') throw new Error(`tiles[${i}].correctRow missing`);
-    if (typeof t.correctCol !== 'number') throw new Error(`tiles[${i}].correctCol missing`);
-    if (ids.has(t.id as number)) throw new Error(`duplicate tile id ${t.id}`);
-    ids.add(t.id as number);
-  }
-
-  return raw as unknown as SwapLevelData;
 }

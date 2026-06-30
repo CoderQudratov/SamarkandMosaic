@@ -1,5 +1,5 @@
 {
-  "level_id": "level_1",
+  "level_id": "level_3",
   "tile_count": 28,
   "solved_order": [
     {
@@ -9,8 +9,8 @@
       "col": 0,
       "x": 0,
       "y": 0,
-      "width": 256,
-      "height": 146,
+      "width": 314,
+      "height": 179,
       "image": "tiles/tile_001.png"
     },
     {
@@ -18,10 +18,10 @@
       "tile_id": 2,
       "row": 0,
       "col": 1,
-      "x": 256,
+      "x": 314,
       "y": 0,
-      "width": 256,
-      "height": 146,
+      "width": 313,
+      "height": 179,
       "image": "tiles/tile_002.png"
     },
     {
@@ -29,10 +29,10 @@
       "tile_id": 3,
       "row": 0,
       "col": 2,
-      "x": 512,
+      "x": 627,
       "y": 0,
-      "width": 256,
-      "height": 146,
+      "width": 313,
+      "height": 179,
       "image": "tiles/tile_003.png"
     },
     {
@@ -40,10 +40,10 @@
       "tile_id": 4,
       "row": 0,
       "col": 3,
-      "x": 768,
+      "x": 940,
       "y": 0,
-      "width": 256,
-      "height": 146,
+      "width": 314,
+      "height": 179,
       "image": "tiles/tile_004.png"
     },
     {
@@ -52,9 +52,9 @@
       "row": 1,
       "col": 0,
       "x": 0,
-      "y": 146,
-      "width": 256,
-      "height": 147,
+      "y": 179,
+      "width": 314,
+      "height": 179,
       "image": "tiles/tile_005.png"
     },
     {
@@ -62,10 +62,10 @@
       "tile_id": 6,
       "row": 1,
       "col": 1,
-      "x": 256,
-      "y": 146,
-      "width": 256,
-      "height": 147,
+      "x": 314,
+      "y": 179,
+      "width": 313,
+      "height": 179,
       "image": "tiles/tile_006.png"
     },
     {
@@ -73,10 +73,10 @@
       "tile_id": 7,
       "row": 1,
       "col": 2,
-      "x": 512,
-      "y": 146,
-      "width": 256,
-      "height": 147,
+      "x": 627,
+      "y": 179,
+      "width": 313,
+      "height": 179,
       "image": "tiles/tile_007.png"
     },
     {
@@ -84,10 +84,10 @@
       "tile_id": 8,
       "row": 1,
       "col": 3,
-      "x": 768,
-      "y": 146,
-      "width": 256,
-      "height": 147,
+      "x": 940,
+      "y": 179,
+      "width": 314,
+      "height": 179,
       "image": "tiles/tile_008.png"
     },
     {
@@ -96,9 +96,9 @@
       "row": 2,
       "col": 0,
       "x": 0,
-      "y": 293,
-      "width": 256,
-      "height": 146,
+      "y": 358,
+      "width": 314,
+      "height": 179,
       "image": "tiles/tile_009.png"
     },
     {
@@ -106,10 +106,10 @@
       "tile_id": 10,
       "row": 2,
       "col": 1,
-      "x": 256,
-      "y": 293,
-      "width": 256,
-      "height": 146,
+      "x": 314,
+      "y": 358,
+      "width": 313,
+      "height": 179,
       "image": "tiles/tile_010.png"
     },
     {
@@ -117,10 +117,10 @@
       "tile_id": 11,
       "row": 2,
       "col": 2,
-      "x": 512,
-      "y": 293,
-      "width": 256,
-      "height": 146,
+      "x": 627,
+      "y": 358,
+      "width": 313,
+      "height": 179,
       "image": "tiles/tile_011.png"
     },
     {
@@ -128,10 +128,10 @@
       "tile_id": 12,
       "row": 2,
       "col": 3,
-      "x": 768,
-      "y": 293,
-      "width": 256,
-      "height": 146,
+      "x": 940,
+      "y": 358,
+      "width": 314,
+      "height": 179,
       "image": "tiles/tile_012.png"
     },
     {
@@ -140,9 +140,9 @@
       "row": 3,
       "col": 0,
       "x": 0,
-      "y": 439,
-      "width": 256,
-      "height": 146,
+      "y": 537,
+      "width": 314,
+      "height": 180,
       "image": "tiles/tile_013.png"
     },
     {
@@ -150,10 +150,10 @@
       "tile_id": 14,
       "row": 3,
       "col": 1,
-      "x": 256,
-      "y": 439,
-      "width": 256,
-      "height": 146,
+      "x": 314,
+      "y": 537,
+      "width": 313,
+      "height": 180,
       "image": "tiles/tile_014.png"
     },
     {
@@ -161,10 +161,10 @@
       "tile_id": 15,
       "row": 3,
       "col": 2,
-      "x": 512,
-      "y": 439,
-      "width": 256,
-      "height": 146,
+      "x": 627,
+      "y": 537,
+      "width": 313,
+      "height": 180,
       "image": "tiles/tile_015.png"
     },
     {
@@ -172,10 +172,10 @@
       "tile_id": 16,
       "row": 3,
       "col": 3,
-      "x": 768,
-      "y": 439,
-      "width": 256,
-      "height": 146,
+      "x": 940,
+      "y": 537,
+      "width": 314,
+      "height": 180,
       "image": "tiles/tile_016.png"
     },
     {
@@ -184,9 +184,9 @@
       "row": 4,
       "col": 0,
       "x": 0,
-      "y": 585,
-      "width": 256,
-      "height": 146,
+      "y": 717,
+      "width": 314,
+      "height": 179,
       "image": "tiles/tile_017.png"
     },
     {
@@ -194,10 +194,10 @@
       "tile_id": 18,
       "row": 4,
       "col": 1,
-      "x": 256,
-      "y": 585,
-      "width": 256,
-      "height": 146,
+      "x": 314,
+      "y": 717,
+      "width": 313,
+      "height": 179,
       "image": "tiles/tile_018.png"
     },
     {
@@ -205,10 +205,10 @@
       "tile_id": 19,
       "row": 4,
       "col": 2,
-      "x": 512,
-      "y": 585,
-      "width": 256,
-      "height": 146,
+      "x": 627,
+      "y": 717,
+      "width": 313,
+      "height": 179,
       "image": "tiles/tile_019.png"
     },
     {
@@ -216,10 +216,10 @@
       "tile_id": 20,
       "row": 4,
       "col": 3,
-      "x": 768,
-      "y": 585,
-      "width": 256,
-      "height": 146,
+      "x": 940,
+      "y": 717,
+      "width": 314,
+      "height": 179,
       "image": "tiles/tile_020.png"
     },
     {
@@ -228,9 +228,9 @@
       "row": 5,
       "col": 0,
       "x": 0,
-      "y": 731,
-      "width": 256,
-      "height": 147,
+      "y": 896,
+      "width": 314,
+      "height": 179,
       "image": "tiles/tile_021.png"
     },
     {
@@ -238,10 +238,10 @@
       "tile_id": 22,
       "row": 5,
       "col": 1,
-      "x": 256,
-      "y": 731,
-      "width": 256,
-      "height": 147,
+      "x": 314,
+      "y": 896,
+      "width": 313,
+      "height": 179,
       "image": "tiles/tile_022.png"
     },
     {
@@ -249,10 +249,10 @@
       "tile_id": 23,
       "row": 5,
       "col": 2,
-      "x": 512,
-      "y": 731,
-      "width": 256,
-      "height": 147,
+      "x": 627,
+      "y": 896,
+      "width": 313,
+      "height": 179,
       "image": "tiles/tile_023.png"
     },
     {
@@ -260,10 +260,10 @@
       "tile_id": 24,
       "row": 5,
       "col": 3,
-      "x": 768,
-      "y": 731,
-      "width": 256,
-      "height": 147,
+      "x": 940,
+      "y": 896,
+      "width": 314,
+      "height": 179,
       "image": "tiles/tile_024.png"
     },
     {
@@ -272,9 +272,9 @@
       "row": 6,
       "col": 0,
       "x": 0,
-      "y": 878,
-      "width": 256,
-      "height": 146,
+      "y": 1075,
+      "width": 314,
+      "height": 179,
       "image": "tiles/tile_025.png"
     },
     {
@@ -282,10 +282,10 @@
       "tile_id": 26,
       "row": 6,
       "col": 1,
-      "x": 256,
-      "y": 878,
-      "width": 256,
-      "height": 146,
+      "x": 314,
+      "y": 1075,
+      "width": 313,
+      "height": 179,
       "image": "tiles/tile_026.png"
     },
     {
@@ -293,10 +293,10 @@
       "tile_id": 27,
       "row": 6,
       "col": 2,
-      "x": 512,
-      "y": 878,
-      "width": 256,
-      "height": 146,
+      "x": 627,
+      "y": 1075,
+      "width": 313,
+      "height": 179,
       "image": "tiles/tile_027.png"
     },
     {
@@ -304,10 +304,10 @@
       "tile_id": 28,
       "row": 6,
       "col": 3,
-      "x": 768,
-      "y": 878,
-      "width": 256,
-      "height": 146,
+      "x": 940,
+      "y": 1075,
+      "width": 314,
+      "height": 179,
       "image": "tiles/tile_028.png"
     }
   ]

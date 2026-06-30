@@ -3,8 +3,8 @@
   "rows": 7,
   "cols": 4,
   "tileSize": 146,
-  "imageWidth": 1024,
-  "imageHeight": 1024,
+  "imageWidth": 584,
+  "imageHeight": 1022,
   "board": "board.png",
   "guide": "guide.png",
   "tiles": [

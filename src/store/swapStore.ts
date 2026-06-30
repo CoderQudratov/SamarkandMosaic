@@ -1,6 +1,11 @@
 import { create } from 'zustand';
 
-// Pure helper — tests whether a slot is in the locked first/last row of any board.
+// Slot membership check used by swap logic and render layers.
+export function isSlotLocked(slotIndex: number, lockedSlots: Set<number>): boolean {
+  return lockedSlots.has(slotIndex);
+}
+
+// Legacy helper kept for callers that haven't migrated to lockedSlots yet.
 export function isLockedSlot(slotIndex: number, cols: number, total: number): boolean {
   return slotIndex < cols || slotIndex >= total - cols;
 }
@@ -17,6 +22,7 @@ interface SwapStore {
   hintUsed: boolean;
   cols: number;
   rows: number;
+  lockedSlots: Set<number>;
 
   initBoard: (
     levelId: string,
@@ -25,6 +31,7 @@ interface SwapStore {
     maxAttempts: number,
     cols: number,
     rows: number,
+    lockedSlots?: Set<number>,
   ) => void;
   selectSlot: (slotIndex: number) => void;
   deselectSlot: () => void;
@@ -33,6 +40,8 @@ interface SwapStore {
   setHintUsed: (v: boolean) => void;
   reset: () => void;
 }
+
+const EMPTY_LOCKED = new Set<number>();
 
 export const useSwapStore = create<SwapStore>((set, get) => ({
   levelId: null,
@@ -46,12 +55,13 @@ export const useSwapStore = create<SwapStore>((set, get) => ({
   hintUsed: false,
   cols: 4,
   rows: 7,
+  lockedSlots: EMPTY_LOCKED,
 
-  initBoard: (levelId, grid, attemptsLeft, maxAttempts, cols, rows) => {
+  initBoard: (levelId, grid, attemptsLeft, maxAttempts, cols, rows, lockedSlots = EMPTY_LOCKED) => {
     const isSolved = grid.every((t, i) => t === i + 1);
     set({
       levelId, grid, attemptsLeft, maxAttempts, isSolved,
-      isLoaded: true, selectedSlot: null, isAnimating: false, cols, rows,
+      isLoaded: true, selectedSlot: null, isAnimating: false, cols, rows, lockedSlots,
     });
   },
 
@@ -74,6 +84,6 @@ export const useSwapStore = create<SwapStore>((set, get) => ({
     levelId: null, grid: [], selectedSlot: null,
     attemptsLeft: 12, maxAttempts: 12,
     isSolved: false, isLoaded: false, isAnimating: false, hintUsed: false,
-    cols: 4, rows: 7,
+    cols: 4, rows: 7, lockedSlots: EMPTY_LOCKED,
   }),
 }));

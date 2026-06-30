@@ -1,5 +1,4 @@
 import { useUIStore } from '@/store/uiStore';
-import { useBoardStore } from '@/store/boardStore';
 import { OrnamentalDivider } from '@/components/ui/OrnamentalDivider';
 import { PrimaryButton } from '@/components/buttons/PrimaryButton';
 import { SecondaryButton } from '@/components/buttons/SecondaryButton';
@@ -8,7 +7,6 @@ import { COLORS } from '@/constants';
 // Reserved for future fail states (lives are not part of the puzzle core phase).
 export function GameOverScene() {
   const tryAgain = () => {
-    useBoardStore.getState().reset();
     useUIStore.getState().setScene('game');
   };
   const toMenu = () => useUIStore.getState().setScene('mainMenu');

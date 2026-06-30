@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react';
 import { gsap } from '@/lib/gsap';
-import { useBoardStore } from '@/store/boardStore';
 import { useLevelStore } from '@/store/levelStore';
 import { usePlayerStore, isLevelUnlocked } from '@/store/playerStore';
 import { useScreenTransition } from '@/hooks/useScreenTransition';
@@ -106,13 +105,11 @@ export function WinScene() {
   const win = getLastWinPayload();
 
   const handleNext = () => {
-    useBoardStore.getState().reset();
     useLevelStore.getState().setSelectedLevelId(nextLevelId);
     navigateTo('game');
   };
 
   const handleReplay = () => {
-    useBoardStore.getState().reset();
     navigateTo('game');
   };
 

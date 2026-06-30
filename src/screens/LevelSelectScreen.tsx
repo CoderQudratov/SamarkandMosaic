@@ -12,7 +12,7 @@ import { OrnamentalDivider } from '@/components/ui/OrnamentalDivider';
 import { SecondaryButton } from '@/components/buttons/SecondaryButton';
 import { LevelCard, type LevelStatus } from '@/components/levels/LevelCard';
 import { LevelPath } from '@/components/levels/LevelPath';
-import { TOTAL_LEVELS, LEVEL_REGISTRY } from '@/game/levels/registry';
+import { TOTAL_LEVELS, LEVEL_REGISTRY, isLevelAvailable } from '@/game/levels/registry';
 
 // ── HUD icons ───────────────────────────────────────────────────────────────
 function CoinIcon() {
@@ -150,6 +150,7 @@ export function LevelSelectScreen() {
   }
 
   const statusFor = (lvl: number): LevelStatus => {
+    if (!isLevelAvailable(lvl)) return 'locked';
     if (!isLevelUnlocked(progress, lvl)) return 'locked';
     if (completed.includes(lvl)) return 'completed';
     if (lvl === currentLevel) return 'current';
@@ -157,6 +158,7 @@ export function LevelSelectScreen() {
   };
 
   const handleSelect = (lvl: number) => {
+    if (!isLevelAvailable(lvl)) return;
     audioManager.play('click');
     hapticsManager.trigger('light');
     useLevelStore.getState().setSelectedLevelId(lvl);

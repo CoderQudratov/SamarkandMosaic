@@ -6,7 +6,6 @@ import { CornerFlourish } from '@/components/ui/CornerFlourish';
 import { PrimaryButton } from '@/components/buttons/PrimaryButton';
 import { useScreenTransition } from '@/hooks/useScreenTransition';
 import { usePlayerStore } from '@/store/playerStore';
-import { storageService } from '@/services/storage.service';
 
 export function NameInputScreen() {
   const { containerRef, navigateTo } = useScreenTransition();
@@ -84,7 +83,6 @@ export function NameInputScreen() {
 
     setError('');
     usePlayerStore.getState().setCustomName(trimmed);
-    storageService.set('customName', trimmed);
     navigateTo('mainMenu');
   }, [name, navigateTo, shakeError]);
 

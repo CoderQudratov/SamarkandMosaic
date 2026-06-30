@@ -1,0 +1,75 @@
+{
+  "levelName": "level-6",
+  "sourceImage": "level-6.png",
+  "rows": 6,
+  "cols": 5,
+  "tileCount": 30,
+  "imageWidth": 1254,
+  "imageHeight": 1254,
+  "tiling": {
+    "model": "full-coverage-vision-guided",
+    "colEdges": [
+      0,
+      251,
+      502,
+      752,
+      1003,
+      1254
+    ],
+    "rowEdges": [
+      0,
+      209,
+      418,
+      627,
+      836,
+      1045,
+      1254
+    ],
+    "colWidths": [
+      251,
+      251,
+      250,
+      251,
+      251
+    ],
+    "rowHeights": [
+      209,
+      209,
+      209,
+      209,
+      209,
+      209
+    ],
+    "nominalTileWidth": 250.8,
+    "nominalTileHeight": 209.0,
+    "maxVarianceFrac": 0.0032
+  },
+  "createdAt": "2026-06-30T10:51:12Z",
+  "version": 1,
+  "vision": {
+    "centerX": 625.73,
+    "centerY": 628.03,
+    "symmetryAxisX": 622,
+    "symmetryAxisY": 637,
+    "symmetryScoreX": 0.9153,
+    "symmetryScoreY": 0.8966,
+    "contourCount": 12
+  },
+  "metrics": {
+    "center_drift": {
+      "value": 1.6348,
+      "threshold": 2.0,
+      "within": true
+    },
+    "symmetry": {
+      "value": 0.906,
+      "threshold": 0.95,
+      "within": false
+    },
+    "line_continuity": {
+      "value": 0.4712,
+      "threshold": 0.5,
+      "within": false
+    }
+  }
+}

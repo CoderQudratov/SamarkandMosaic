@@ -6,6 +6,7 @@ const COINS_KEY = 'coins';
 const HINTS_KEY = 'hints';
 const SHARDS_KEY = 'shards';
 const PROGRESS_KEY = 'progress';
+const CUSTOM_NAME_KEY = 'customName';
 
 const EMPTY_PROGRESS: PlayerProgress = {
   completedLevels: [],
@@ -43,6 +44,16 @@ function loadCount(key: string): number {
   return typeof v === 'number' && Number.isFinite(v) && v >= 0 ? Math.floor(v) : 0;
 }
 
+// New players receive 3 free hints. Distinguishes "first run" (null) from "used all" (0).
+function loadHints(): number {
+  const v = storageService.get<number>(HINTS_KEY);
+  if (v === null || v === undefined) {
+    storageService.set(HINTS_KEY, 3);
+    return 3;
+  }
+  return typeof v === 'number' && Number.isFinite(v) && v >= 0 ? Math.floor(v) : 0;
+}
+
 interface PlayerStore {
   // Telegram identity — null until bootstrap resolves
   profile: PlayerProfile | null;
@@ -76,11 +87,15 @@ interface PlayerStore {
    */
   spendCoins: (amount: number) => boolean;
   addHint: () => void;
+  /** Add n hints to inventory (used after purchasing a hint pack). */
+  addHints: (n: number) => void;
   /**
    * Use one hint: free if hints > 0, else spends `coinCost` coins.
    * Returns false when both hint inventory and coins are insufficient.
    */
   spendHint: (coinCost: number) => boolean;
+  /** Deduct exactly one hint from inventory. Returns false if none available. */
+  useHint: () => boolean;
   addShard: () => void;
   /** Wipe coins, hints, shards to 0 and clear their localStorage keys. */
   resetEconomy: () => void;
@@ -91,17 +106,21 @@ interface PlayerStore {
 
 export const usePlayerStore = create<PlayerStore>((set, get) => ({
   profile: null,
-  customName: null,
+  customName: storageService.get<string>(CUSTOM_NAME_KEY),
   isGuest: true,
   coins: loadCount(COINS_KEY),
-  hints: loadCount(HINTS_KEY),
+  hints: loadHints(),
   shards: loadCount(SHARDS_KEY),
   progress: loadProgress(),
 
   setProfile: (profile) =>
     set({ profile, isGuest: profile.telegramId === 0 }),
 
-  setCustomName: (name) => set({ customName: name.trim() }),
+  setCustomName: (name) => {
+    const trimmed = name.trim();
+    storageService.set(CUSTOM_NAME_KEY, trimmed);
+    set({ customName: trimmed });
+  },
 
   getDisplayName: () => {
     const { customName, profile } = get();
@@ -187,6 +206,15 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       return { hints };
     }),
 
+  addHints: (n) => {
+    if (!Number.isFinite(n) || n <= 0) return;
+    set((s) => {
+      const hints = s.hints + Math.floor(n);
+      storageService.set(HINTS_KEY, hints);
+      return { hints };
+    });
+  },
+
   spendHint: (coinCost) => {
     let success = false;
     set((s) => {
@@ -203,6 +231,18 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       const coins = s.coins - coinCost;
       storageService.set(COINS_KEY, coins);
       return { coins };
+    });
+    return success;
+  },
+
+  useHint: () => {
+    let success = false;
+    set((s) => {
+      if (s.hints <= 0) return s;
+      success = true;
+      const hints = s.hints - 1;
+      storageService.set(HINTS_KEY, hints);
+      return { hints };
     });
     return success;
   },
