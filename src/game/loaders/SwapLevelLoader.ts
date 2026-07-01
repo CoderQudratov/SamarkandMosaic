@@ -50,6 +50,13 @@ export interface LoadedLevel {
   guideSrc: string | null;
   lockedSlots: Set<number>;
   tileImageMap: Record<number, string>;
+  /**
+   * Fully decoded tile images, keyed by tile id. Populated by the blocking
+   * preload in loadLevel() before the promise resolves, so the board can paint
+   * atomically from cache with no progressive pop-in. Holding the references
+   * also keeps the decoded bitmaps from being evicted.
+   */
+  tileImages: Map<number, HTMLImageElement>;
   cacheBust: string;
 }
 
@@ -77,6 +84,34 @@ export function detectLockedSlots(levelNum: number, rows: number, cols: number):
     locked.add(total - 1);
   }
   return locked;
+}
+
+/**
+ * Load AND decode a single image, resolving only once the bitmap is ready to
+ * paint. Prefers HTMLImageElement.decode() (guarantees the next paint won't
+ * block on decode); falls back to the onload event where decode() is missing.
+ * Never hard-fails the level on a single bad asset — a broken tile resolves so
+ * Promise.all can complete and the board still appears.
+ */
+async function preloadImage(url: string): Promise<HTMLImageElement> {
+  const img = new Image();
+  img.decoding = 'async';
+  img.src = url;
+  try {
+    if (typeof img.decode === 'function') {
+      await img.decode();
+      return img;
+    }
+  } catch {
+    // decode() can reject spuriously on some browsers even when the bitmap is
+    // usable; fall through to the onload path rather than failing.
+  }
+  await new Promise<void>((resolve) => {
+    if (img.complete && img.naturalWidth > 0) return resolve();
+    img.onload = () => resolve();
+    img.onerror = () => resolve();
+  });
+  return img;
 }
 
 function deriveManifest(raw: Record<string, unknown>, levelId: string): LevelManifest {
@@ -240,6 +275,22 @@ export async function loadLevel(levelId: string): Promise<LoadedLevel> {
   console.log(`[LevelLoader] COLS: ${cols}`);
   console.log(`[LevelLoader] LOCKED COUNT: ${lockedSlots.size}`);
 
+  // ── Blocking preload ─────────────────────────────────────────────────────
+  // Decode EVERY visible asset before this promise resolves. The board's load
+  // effect awaits loadLevel(), so nothing renders until this completes — the
+  // mosaic paints atomically from cache instead of hydrating tile-by-tile over
+  // the network (the progressive top/middle/bottom pop-in seen on Vercel).
+  console.log(`[PRELOAD START] level-${levelId}: ${tiles.length} tiles + board${guideSrc ? ' + guide' : ''}`);
+  const tileImages = new Map<number, HTMLImageElement>();
+  const jobs: Promise<void>[] = [];
+  for (const t of tiles) {
+    jobs.push(preloadImage(tileImageMap[t.id]).then((img) => { tileImages.set(t.id, img); }));
+  }
+  jobs.push(preloadImage(boardSrc).then(() => undefined));
+  if (guideSrc) jobs.push(preloadImage(guideSrc).then(() => undefined));
+  await Promise.all(jobs);
+  console.log(`[PRELOAD DONE] level-${levelId}: ${tileImages.size}/${tiles.length} tiles decoded`);
+
   return {
     id: levelId,
     levelNum,
@@ -251,6 +302,7 @@ export async function loadLevel(levelId: string): Promise<LoadedLevel> {
     guideSrc,
     lockedSlots,
     tileImageMap,
+    tileImages,
     cacheBust: String(ts),
   };
 }

@@ -396,6 +396,10 @@ export function SwapPuzzleBoard() {
         const data = await loadLevel(String(selectedLevelId));
         if (cancelled) return;
 
+        // loadLevel() has already decoded every tile/board/guide image, so the
+        // board will paint atomically from cache (no progressive pop-in).
+        console.log(`[TILES READY] level-${selectedLevelId}: ${data.tileImages.size} tiles decoded & cached`);
+
         if (import.meta.env.DEV) {
           console.log('[SwapBoard] ACTIVE LEVEL:', selectedLevelId);
           console.log('[SwapBoard] BOARD SRC:', data.boardSrc);
@@ -431,6 +435,7 @@ export function SwapPuzzleBoard() {
           phaseRef.current = 'preview';
           setCountdown(3);
         }
+        console.log(`[BOARD READY] level-${selectedLevelId}: rendering ${total} slots from preloaded cache`);
       } catch (err) {
         if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load level');
       }
