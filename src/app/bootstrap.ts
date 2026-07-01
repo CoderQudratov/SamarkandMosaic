@@ -13,6 +13,7 @@ import { saveSystem } from '@/game/systems/SaveSystem';
 import { syncManager } from '@/game/systems/SyncManager';
 import { init as telegramInit } from '@/integrations/telegram';
 import { sync } from '@/services/sync.service';
+import { ensureSupabaseSession } from '@/services/supabaseAuth.service';
 
 // ─── Phase 1: synchronous ────────────────────────────────────────────────────
 // Everything here is instant (no network, no disk). Safe to run BEFORE render.
@@ -44,9 +45,6 @@ export function bootstrapSync(): void {
   const profile = getTelegramUser();
   usePlayerStore.getState().setProfile(profile);
 
-  // Upsert profile to Supabase (fire-and-forget — won't block render).
-  sync.profile();
-
   // ── SaveSystem ────────────────────────────────────────────────────────────
   // load() runs after stores have initialised from their per-key keys so it
   // can intelligently merge/supplement (stats + backup restoration).
@@ -68,6 +66,14 @@ export function bootstrapSync(): void {
 export async function bootstrapAsync(): Promise<void> {
   const { profile } = usePlayerStore.getState();
   if (!profile || profile.telegramId === 0) return; // guest/mock user — skip
+
+  // Exchange Telegram initData for a Supabase JWT carrying the telegram_id
+  // claim, so RLS policies (auth.telegram_id()) accept the writes below.
+  // Best-effort: on failure we continue local-only, same as before this existed.
+  await ensureSupabaseSession();
+
+  // Upsert profile to Supabase (fire-and-forget — won't block render).
+  sync.profile();
 
   // Three-source sync: localStorage + Supabase + Telegram CloudStorage.
   // Resolves conflicts, hydrates stores, writes merged snapshot back.
