@@ -1,0 +1,174 @@
+══════════════════════════════════════════════════════════════════════════════
+  SAMARKAND MOSAIC — PRODUCTION READINESS REVIEW
+  Sana: 2026-07-01
+  Tekshirgan: Claude Code (Opus 4.8)
+══════════════════════════════════════════════════════════════════════════════
+
+  UMUMIY PRODUCTIONGA TAYYORLIK:  5 / 10
+
+  O'yin TEXNIK JIHATDAN ISHLAYDI:
+    - Build toza o'tadi (npm run build → EXIT 0)
+    - TypeScript type-check 0 xato (tsc --noEmit → EXIT 0)
+    - localStorage rejimida to'liq o'ynash mumkin
+
+  LEKIN haqiqiy launch uchun 2 ta JIDDIY to'siq bor:
+    1. Backend auth aslida ishlamaydi (Edge Function yozilmagan)
+    2. Assetlar hajmi Telegram Mini App uchun juda katta (194MB)
+
+
+──────────────────────────────────────────────────────────────────────────────
+  SOHALAR BO'YICHA BAHO
+──────────────────────────────────────────────────────────────────────────────
+
+  Soha                          | Ball  | Holat
+  ------------------------------|-------|------------------------------------
+  Frontend / UI                 | 7/10  | Toza, arxitektura qoidalariga amal
+  O'yin mantiqi (swap puzzle)   | 6/10  | Ishlaydi, lekin monolit va testsiz
+  Telegram integratsiya (client)| 7/10  | To'g'ri o'qiydi, initDataUnsafe ishlatadi
+  Telegram bot (BotFather)      | 6/10  | Kod kerak emas, DEPLOY.md da qadamlar bor
+  Backend / Supabase sxema      | 6/10  | Sxema chiroyli, lekin ulanmagan
+  Auth / xavfsizlik             | 3/10  | ⚠️ Production auth yo'q — spoof mumkin
+  Build / assetlar              | 3/10  | ⚠️ 194MB assetlar dist'ga chiqyapti
+  Testlar                       | 1/10  | Umuman yo'q
+
+
+──────────────────────────────────────────────────────────────────────────────
+  🔴 KRITIK KAMCHILIKLAR (launch'gacha SHART hal qilinishi kerak)
+──────────────────────────────────────────────────────────────────────────────
+
+  1. BACKEND AUTH ASLIDA ISHLAMAYDI
+     - Client hech qachon initData'ni serverga yubormaydi, JWT olmaydi.
+       (setSession, signIn — kod bazasida hech qayerda yo'q)
+     - RLS policy'lar auth.telegram_id() ga tayanadi, lekin JWT bo'lmasa
+       u HAR DOIM NULL qaytaradi → barcha o'qish/yozish BLOKLANADI →
+       remote sync jimgina fail bo'lib, faqat localStorage'da ishlaydi.
+     - Natija: leaderboard, cross-device progress, do'kon — HECH BIRI
+       real ishlamaydi. O'yin faqat bitta qurilmada localStorage'da yashaydi.
+     - DEPLOY.md o'zi tan oladi:
+       "initData validation required for RLS ⚠️ needs Edge Function"
+       Ya'ni Supabase Edge Function YOZILMAGAN.
+     - Fayl: supabase/migrations/20250625000001_create_helper_functions.sql
+       (auth model izohi), src/services/progress.service.ts (JWT'siz so'rov)
+
+  2. initDataUnsafe — SOXTALASHTIRSA BO'LADI
+     - src/services/telegram/telegramUser.ts:23 — HMAC tekshiruvsiz
+       to'g'ridan-to'g'ri initDataUnsafe.user'ni ishonadi.
+     - Har kim istalgan telegram_id bilan o'zini boshqa odam qilib
+       ko'rsatishi mumkin. Server validatsiyasi yo'qligi sabab hech
+       narsa to'smaydi.
+
+  3. 194MB ASSET DIST'GA CHIQYAPTI — 40 TA DEBUG FAYL
+     - Har levelda dev artefaktlari ship bo'lyapti (har biri ~4MB):
+         master.png
+         debug_reconstruction.png
+         segmentation_debug.png
+         vision_debug.png
+     - dist/assets/levels = 194MB
+     - Logo ham 2.1MB (dist/assets/logo-*.png)
+     - Telegram Mini App tez ochilishi kerak — bu hajmda birinchi
+       yuklanish sekin bo'ladi, ko'p foydalanuvchi tashlab ketadi.
+     - Manba: src/assets/levels = 190MB
+
+
+──────────────────────────────────────────────────────────────────────────────
+  🟠 O'RTA DARAJADAGI KAMCHILIKLAR
+──────────────────────────────────────────────────────────────────────────────
+
+  4. IKKI XIL ZIDDIYATLI MIGRATSIYA TO'PLAMI
+     - supabase/migrations/ ichida ikki to'plam:
+         0002–0008           (asl)
+         100001–100004_mvp   (MVP)
+     - Bir xil jadvallarni (profiles, progress, economy, daily_rewards)
+       ikki marta yaratadi. IF NOT EXISTS xatoni yashiradi, lekin xavfli:
+       masalan progress.completed_levels bir sxemada integer[], MVP'da jsonb.
+     - Qaysi migratsiya birinchi ishga tushsa, sxema o'sha bo'lib qoladi.
+       progress.service.ts esa jsonb deb faraz qiladi — mos kelmasa fail.
+
+  5. O'LIK KOD
+     - src/services/supabase.service.ts mavjud bo'lmagan 'player_progress'
+       jadvaliga murojaat qiladi (migratsiyada 'progress' deb ataladi).
+     - Ulanmagan (sync.service.ts progress.service'ni ishlatadi), lekin
+       adashtiruvchi — o'chirilishi kerak.
+
+  6. TESTLAR UMUMAN YO'Q
+     - Birorta unit yoki integration test yo'q.
+     - Snap/swap/win mantiqi faqat qo'lda tekshirishga tayangan.
+
+  7. MONOLIT KOMPONENT
+     - src/game/board/SwapPuzzleBoard.tsx = 1489 qator.
+     - Juda katta, kichikroq bo'laklarga bo'linishi kerak.
+
+  8. BUILD OGOHLANTIRISHI
+     - registry.ts ham dynamic ham static import qilinadi (EconomySystem,
+       LevelSelectScreen, levelStore). Dynamic import chunk'ga ko'chmaydi.
+     - Kritik emas, lekin code-splitting foydasini yo'qotadi.
+
+
+──────────────────────────────────────────────────────────────────────────────
+  👤 O'ZINGIZ SHAXSAN REVIEW QILISHINGIZ KERAK BO'LGAN JOYLAR
+──────────────────────────────────────────────────────────────────────────────
+
+  1. SUPABASE'DA REAL TEKSHIRING
+     Telefonda o'ynang, keyin boshqa qurilmada kiring: progress/leaderboard
+     haqiqatan saqlanyaptimi yoki jimgina localStorage'ga tushyaptimi?
+     (Taxminim: remote ISHLAMAYAPTI — o'z ko'zingiz bilan tasdiqlang.)
+
+  2. QAYSI MIGRATSIYA DEPLOY QILINGAN
+     progress jadvalidagi completed_levels ustuni integer[] yoki jsonb?
+     Supabase Dashboard → Table editor'da qarang.
+
+  3. BOTFATHER SOZLAMALARI
+     Menu Button URL, domain, Mini App havolasi to'g'ri ulanganmi.
+     (Bu faqat siz qila olasiz — kodda yo'q.)
+
+  4. RLS HAQIQATAN YOQILGANMI
+     - Agar YOQILGAN bo'lsa: hozir hamma so'rov bloklanadi (JWT yo'q).
+     - Agar O'CHIRILGAN bo'lsa: har kim har kimning ma'lumotini o'zgartira oladi.
+     Ikkalasi ham yomon — Edge Function shart.
+
+  5. LEVEL ASSETLARI TO'G'RIMI
+     pieces/ va level.json koordinatalari puzzle to'g'ri yig'ilishini
+     beradimi — 10 ta levelni o'zingiz o'ynab ko'ring.
+
+
+──────────────────────────────────────────────────────────────────────────────
+  ✅ YAXSHI TOMONLARI
+──────────────────────────────────────────────────────────────────────────────
+
+  - Arxitektura qoidalari (CLAUDE.md) puxta va amalga oshirilgan:
+    React Pixi'ga tegmaydi, state Zustand'da, manager'lar ajratilgan.
+  - Supabase sxema professional yozilgan: RLS policy'lar, CHECK
+    constraint'lar, GIN index'lar, SECURITY DEFINER RPC'lar.
+  - Build va type-check toza o'tadi.
+  - Graceful degradation: Supabase yo'q bo'lsa localStorage'da ishlaydi,
+    crash bermaydi.
+  - Xatolarni ushlash (try/catch) hamma remote chaqiruvlarda bor.
+
+
+──────────────────────────────────────────────────────────────────────────────
+  🗺️ LAUNCH UCHUN MINIMAL YO'L XARITASI
+──────────────────────────────────────────────────────────────────────────────
+
+  1. optimize-assets skriptiga debug/master/segmentation fayllarni
+     EXCLUDE qiling → dist ~10–15MB'ga tushadi.
+     (scripts/optimize-assets.mjs)
+
+  2. Logo'ni siqing (2.1MB → <100KB) yoki SVG qiling.
+
+  3. Supabase EDGE FUNCTION yozing:
+     - initData HMAC'ni bot token bilan tekshirsin
+     - telegram_id claim bilan JWT qaytarsin
+     - client uni setSession bilan ishlatsin
+     Shundan keyingina backend real ishlaydi.
+
+  4. Migratsiyalarni bitta toza to'plamga birlashtiring,
+     o'lik supabase.service.ts'ni o'chiring.
+
+  5. (Ixtiyoriy) Kritik o'yin mantiqiga (swap/snap/win) test yozing.
+
+
+══════════════════════════════════════════════════════════════════════════════
+  XULOSA: O'yin demo/localStorage sifatida 7/10, lekin haqiqiy multiplayer/
+  cloud-sync production sifatida 5/10. Asosiy 2 blocker — Edge Function auth
+  va asset hajmi — hal qilinsa, 8/10 ga chiqadi.
+══════════════════════════════════════════════════════════════════════════════

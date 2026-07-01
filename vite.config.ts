@@ -32,10 +32,22 @@ function srcLevelAssetsPlugin(): Plugin {
     '.txt': 'text/plain',
   };
 
+  // Debug-only and unused assets — never ship to production.
+  const EXCLUDED_FILES = new Set([
+    'master.png',
+    'debug_reconstruction.png',
+    'segmentation_debug.png',
+    'vision_debug.png',
+    'preview.png',
+    'guide.png',
+    'placements.json',
+  ]);
+
   function copyDirSync(src: string, dest: string): void {
     if (!fs.existsSync(src)) return;
     fs.mkdirSync(dest, { recursive: true });
     for (const item of fs.readdirSync(src)) {
+      if (EXCLUDED_FILES.has(item)) continue;
       const s = path.join(src, item);
       const d = path.join(dest, item);
       fs.statSync(s).isDirectory() ? copyDirSync(s, d) : fs.copyFileSync(s, d);
